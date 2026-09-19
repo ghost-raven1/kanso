@@ -1,12 +1,21 @@
 name: Kanso checks
 on: [push, pull_request]
+permissions:
+  contents: read
+concurrency:
+  group: kanso-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   contracts-and-browsers:
     runs-on: ubuntu-latest
-    container: mcr.microsoft.com/playwright:v1.63.0-noble
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
       - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run check
       - run: npm run test:browser
       - run: npm run test:tooling
