@@ -1,0 +1,7 @@
+FROM mcr.microsoft.com/playwright:v1.63.0-noble
+WORKDIR /work
+COPY package.json package-lock.json ./
+COPY packages ./packages
+RUN npm ci --ignore-scripts
+COPY . .
+CMD ["sh", "-c", "npm run check && npm run test:browser && cp output/browser/results.json /results/browser.json"]

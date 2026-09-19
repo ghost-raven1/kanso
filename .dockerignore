@@ -1,0 +1,8 @@
+node_modules
+**/dist
+**/dist-server
+.git
+.types
+.playwright-mcp
+output
+coverage

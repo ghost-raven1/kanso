@@ -1,0 +1,46 @@
+{
+  "name": "kanso-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:browser": "node scripts/browser-tests.mjs",
+    "dev": "vite --config examples/lab/vite.config.ts",
+    "build:example": "node scripts/build-example.mjs",
+    "preview": "node examples/lab/serve.mjs",
+    "check:dependencies": "node scripts/check-dependencies.mjs",
+    "bench": "node scripts/benchmark.mjs",
+    "check": "npm run build && npm run typecheck && npm test && npm run build:example && npm run check:dependencies",
+    "test:tooling": "node scripts/tooling-tests.mjs"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.28.0",
+    "@babel/generator": "^7.28.0",
+    "@babel/parser": "^7.28.0",
+    "@babel/preset-typescript": "^7.27.1",
+    "@babel/traverse": "^7.28.0",
+    "@babel/types": "^7.28.0",
+    "@types/babel__core": "^7.20.5",
+    "@types/babel__generator": "^7.27.0",
+    "@types/babel__traverse": "^7.28.0",
+    "@types/jsdom": "^21.1.7",
+    "@types/node": "^20.19.0",
+    "babel-preset-solid": "1.9.15",
+    "esbuild": "0.28.2",
+    "jsdom": "^26.1.0",
+    "playwright": "1.63.0",
+    "typescript": "^5.9.0",
+    "vite": "8.3.0",
+    "vite-plugin-solid": "2.11.14",
+    "vitest": "4.1.11"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "ESNext", "moduleResolution": "Bundler",
+    "strict": true, "skipLibCheck": true, "esModuleInterop": true,
+    "jsx": "preserve", "jsxImportSource": "@kanso/core",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node", "vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@kanso/core": ["packages/core/src/index.ts"],
+      "@kanso/core/*": ["packages/core/src/*"],
+      "@kanso/compiler": ["packages/compiler/src/index.ts"],
+      "@kanso/vite": ["packages/vite/src/index.ts"],
+      "@kanso/app": ["packages/app/src/index.ts"],
+      "@kanso/app/*": ["packages/app/src/*"],
+      "@kanso/cli": ["packages/cli/src/index.ts"]
+    }
+  },
+  "include": ["packages/**/*.ts", "examples/**/*.ts", "examples/**/*.tsx", "tests/**/*.ts", "types/**/*.d.ts", "vitest.config.ts"]
+}

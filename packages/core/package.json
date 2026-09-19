@@ -1,0 +1,12 @@
+{
+  "name": "@kanso/core", "version": "0.1.0", "type": "module", "sideEffects": false,
+  "files": ["dist"],
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./internal": { "types": "./dist/internal.d.ts", "default": "./dist/internal.js" },
+    "./client": { "types": "./dist/client.d.ts", "default": "./dist/client.js" },
+    "./jsx-runtime": { "types": "./dist/jsx-runtime.d.ts", "default": "./dist/jsx-runtime.js" },
+    "./jsx-dev-runtime": { "types": "./dist/jsx-runtime.d.ts", "default": "./dist/jsx-runtime.js" }
+  },
+  "dependencies": { "solid-js": "1.9.15" }
+}

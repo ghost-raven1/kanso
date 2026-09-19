@@ -1,0 +1,13 @@
+node_modules/
+.playwright-mcp/
+dist/
+dist-server/
+.types/
+coverage/
+output/
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+!.env.example
+.npmrc

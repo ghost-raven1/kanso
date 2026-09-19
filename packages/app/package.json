@@ -1,0 +1,10 @@
+{
+  "name": "@kanso/app", "version": "0.1.0", "type": "module", "sideEffects": false,
+  "files": ["dist", "dist-server"],
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "node": "./dist-server/index.js", "default": "./dist/index.js" },
+    "./server": { "types": "./dist/server.d.ts", "default": "./dist-server/server.js" },
+    "./node": { "types": "./dist/node.d.ts", "default": "./dist-server/node.js" }
+  },
+  "dependencies": { "@kanso/core": "0.1.0", "solid-js": "1.9.15", "@solidjs/router": "0.16.3" }
+}

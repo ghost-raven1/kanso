@@ -1,0 +1,36 @@
+import { createComponent, ErrorBoundary, Suspense, type Component } from 'solid-js';
+import { Router, useLocation, type RouteDefinition, type RouteSectionProps } from '@solidjs/router';
+import { Dynamic } from 'solid-js/web';
+import { createRouteData, DataContext, RouteIdContext } from './data.js';
+import type { Bootstrap, Route } from './types.js';
+
+export interface AppProps { routes: Route[]; url?: string; bootstrap?: Bootstrap }
+
+const toRouterRoutes = (routes: Route[]): RouteDefinition[] => routes.map(route => ({
+  path: route.path,
+  component: (props: RouteSectionProps) => createComponent(RouteIdContext.Provider, {
+    value: route.id,
+    get children() {
+      return createComponent(ErrorBoundary, {
+        fallback: error => route.error ? createComponent(route.error, { error }) : createComponent(Dynamic, { component: 'p', role: 'alert', children: 'Unable to load this route.' }),
+        get children() {
+          return createComponent(Suspense, {
+            get fallback() { return route.pending ? createComponent(route.pending, {}) : 'Loading…'; },
+            get children() { return createComponent(route.component, { get children() { return props.children; } }); },
+          });
+        },
+      });
+    },
+  }),
+  children: route.children && toRouterRoutes(route.children),
+}));
+
+/** A single data context belongs to this app root (and therefore this SSR request). */
+export function App(props: AppProps) {
+  const Root: Component<{ children?: import('solid-js').JSX.Element }> = root => {
+    const location = useLocation();
+    const data = createRouteData(() => location.pathname + location.search, props.bootstrap);
+    return createComponent(DataContext.Provider, { value: data, get children() { return root.children; } });
+  };
+  return createComponent(Router, { url: props.url, root: Root, children: toRouterRoutes(props.routes) });
+}
