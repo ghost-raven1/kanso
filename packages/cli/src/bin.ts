@@ -10,6 +10,12 @@ const option = (name: string) => {
   if (!value || value.startsWith('--')) throw new Error(`Missing value for ${name}.`);
   return value;
 };
+const options = (name: string) => args.flatMap((item, index) => {
+  if (item !== name) return [];
+  const value = args[index + 1];
+  if (!value || value.startsWith('--')) throw new Error(`Missing value for ${name}.`);
+  return [value];
+});
 try {
   if (command === 'create') {
     const directory = args[0];
@@ -46,16 +52,17 @@ try {
     }
     if (report.diagnostics.some(item => item.severity === 'error')) process.exitCode = 2;
   } else if (command === 'migrate') {
-    const report = await migrate({ root: option('--root') ?? process.cwd(), apply: args.includes('--apply'), local: option('--local') });
+    const report = await migrate({ root: option('--root') ?? process.cwd(), apply: args.includes('--apply'), local: option('--local'), entries: options('--entry'), configs: options('--config') });
     if (args.includes('--json')) console.log(JSON.stringify(report, null, 2));
     else {
       console.log(`Kanso: ${report.modules} modules checked, ${report.changes.length} proposed file changes.`);
+      if (report.coverage) console.log(`Coverage: ${report.coverage.complete ? 'complete selected source graph' : 'partial; unresolved configuration or source edges remain'}. Entries: ${report.coverage.entries.join(', ') || 'none'}.`);
       for (const item of report.diagnostics) console.log(`${item.file}:${item.line ?? 1}:${item.column ?? 1} [${item.code}] ${item.message}\n  ${item.hint ?? ''}`);
       console.log(report.applied ? 'Migration applied. Run npm install and your checks.' : report.diagnostics.some(item => item.severity === 'error') ? 'Blocked. No files changed.' : 'Ready. Use --apply to write these changes.');
     }
     if (report.diagnostics.some(item => item.severity === 'error')) process.exitCode = 2;
   } else {
-    console.log('kanso create <directory> [--local <workspace>]\nkanso migrate --check|--apply [--root <project>] [--local <workspace>] [--json]');
+    console.log('kanso create <directory> [--local <workspace>]\nkanso migrate --check|--apply [--root <project>] [--entry <file>] [--config <file>] [--local <workspace>] [--json]');
     console.log('kanso doctor [--root <project>] [--json]\nkanso create <directory> --template csr|ssr|microfrontends|remote [--local <workspace>]');
     console.log('kanso seo check --url <origin/page> [--max-pages 200] [--json]');
     console.log('kanso microfrontends sync|check [--root <project>] [--json]');

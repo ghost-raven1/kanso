@@ -28,6 +28,11 @@ async function scenario(page, kind) {
     await page.getByLabel('Name').fill('Kanso'); await page.getByRole('button', { name: 'Theme' }).click();
     assert.equal(await page.locator('[data-name]').textContent(), 'Kanso'); assert.equal(await page.locator('[data-theme]').textContent(), 'dark');
     await page.getByRole('button', { name: 'Focus' }).click(); assert.equal(await page.getByLabel('Name').evaluate(node => node === document.activeElement), true);
+    await page.getByLabel('Draft', { exact: true }).fill('Unsaved');
+    await page.getByRole('button', { name: 'Reset draft' }).click();
+    assert.equal(await page.getByLabel('Draft', { exact: true }).inputValue(), '');
+    assert.equal(await page.locator('[data-markup]').innerHTML(), '<em>Draft reset</em>');
+    assert.equal(await page.locator('[data-name]').textContent(), 'Kanso');
   } else if (kind === 'catalog') {
     await page.getByLabel('Note 1').fill('keep');
     await page.getByRole('button', { name: 'Reverse' }).click(); await page.getByRole('button', { name: 'Replace' }).click();
@@ -52,6 +57,11 @@ try {
     await writeFile(join(root, 'tsconfig.base.json'), JSON.stringify({ compilerOptions: { strict: true, skipLibCheck: true, target: 'ES2022', module: 'ESNext', moduleResolution: 'Bundler', jsx: 'react-jsx', baseUrl: '.', paths: { '@/*': ['src/*'] }, lib: ['ES2022', 'DOM'], types: ['vite/client'] } }));
     await writeFile(join(root, 'tsconfig.json'), JSON.stringify({ extends: './tsconfig.base.json', include: ['src'] }));
     await writeFile(join(root, 'vite.config.ts'), `import{defineConfig}from'vite';import react from'@vitejs/plugin-react';export default defineConfig({plugins:[react()],resolve:{tsconfigPaths:true}});`);
+    if (kind === 'profile') {
+      await mkdir(join(root, 'config'));
+      await writeFile(join(root, 'config/client.ts'), await readFile(join(root, 'vite.config.ts'), 'utf8'));
+      await writeFile(join(root, 'vite.config.ts'), "export {default} from './config/client';\n");
+    }
     install(root); run(root, 'npm', ['run', 'typecheck']); run(root, 'npm', ['run', 'build']);
     for (const phase of ['react', 'kanso']) {
       if (phase === 'kanso') {

@@ -1,7 +1,10 @@
 import { readFile, readdir, realpath, stat } from 'node:fs/promises';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { parse } from '@babel/parser';
+import { property } from './static-config.js';
+export { staticViteConfig, property } from './static-config.js';
+import { readConfigGraph } from './config-graph.js';
+import { createPackageSourceResolver } from './package-sources.js';
 import * as t from '@babel/types';
 import ts from 'typescript';
 
@@ -31,89 +34,37 @@ const exists = async (path: string) => {
 export interface ProjectResolver {
   resolve(from: string, specifier: string): Promise<string | undefined>;
   configFile?: string;
+  configExport?: string;
+  configFiles: string[];
+  configError?: Error;
+  entries?: string[];
+  entryRoot?: string;
   paths: boolean;
   compilerOptions: ts.CompilerOptions;
 }
 
-/** Read only a declarative Vite config. Never execute user configuration during an audit. */
-export function staticViteConfig(
-  source: string,
-  file: string,
-): { ast: t.File; config: t.ObjectExpression } {
-  const ast = parse(source, { sourceType: 'module', plugins: ['typescript'] });
-  const constants = new Map<string, t.Expression>();
-  for (const item of ast.program.body)
-    if (t.isVariableDeclaration(item, { kind: 'const' }))
-      for (const declaration of item.declarations) {
-        if (t.isIdentifier(declaration.id) && t.isExpression(declaration.init))
-          constants.set(declaration.id.name, declaration.init);
-      }
-  const seen = new Set<string>();
-  const unwrap = (node: t.Node | null | undefined): t.Node | undefined => {
-    if (
-      t.isIdentifier(node) &&
-      constants.has(node.name) &&
-      !seen.has(node.name)
-    ) {
-      seen.add(node.name);
-      return unwrap(constants.get(node.name));
-    }
-    if (t.isTSAsExpression(node) || t.isTSSatisfiesExpression(node))
-      return unwrap(node.expression);
-    if (t.isCallExpression(node) && t.isIdentifier(node.callee)) {
-      const imported = ast.program.body.some(
-        item =>
-          t.isImportDeclaration(item) &&
-          item.source.value === 'vite' &&
-          item.specifiers.some(
-            specifier =>
-              t.isImportSpecifier(specifier) &&
-              t.isIdentifier(specifier.imported, { name: 'defineConfig' }) &&
-              specifier.local.name === (node.callee as t.Identifier).name,
-          ),
-      );
-      if (imported) return unwrap(node.arguments[0]);
-    }
-    return node ?? undefined;
-  };
-  const config = unwrap(
-    ast.program.body.find(t.isExportDefaultDeclaration)?.declaration,
-  );
-  if (
-    !t.isObjectExpression(config) ||
-    config.properties.some(item => t.isSpreadElement(item) || item.computed)
-  )
-    throw new Error(
-      `VITE_CONFIG_DYNAMIC: ${file} must export a static defineConfig({...}) object for automatic migration.`,
-    );
-  return { ast, config };
-}
-export const property = (object: t.ObjectExpression, name: string) =>
-  object.properties.find(
-    item =>
-      t.isObjectProperty(item) &&
-      !item.computed &&
-      (t.isIdentifier(item.key, { name }) ||
-        t.isStringLiteral(item.key, { value: name })),
-  ) as t.ObjectProperty | undefined;
-
 /** Resolve source graphs and hook exports with the same paths, aliases and realpath rules. */
 export async function createProjectResolver(
   root: string,
+  options: { config?: string; inventory?: boolean } = {},
 ): Promise<ProjectResolver> {
   const files = await readdir(root);
   const configs = files.filter(file => /^vite\.config\.[cm]?[jt]s$/.test(file));
-  if (configs.length > 1)
-    throw new Error(
-      'VITE_CONFIG_AMBIGUOUS: keep one Vite configuration for migration.',
-    );
+  const ambiguous = !options.config && configs.length > 1;
+  const ambiguity = ambiguous ? new Error('VITE_CONFIG_AMBIGUOUS: select configurations explicitly with repeated --config options.') : undefined;
+  if (ambiguity && !options.inventory) throw ambiguity;
   const aliases: { find: string; replacement: string }[] = [];
-  const configFile = configs[0] && resolve(root, configs[0]);
-  if (configFile) {
-    const { ast, config } = staticViteConfig(
-      await readFile(configFile, 'utf8'),
-      configFile,
-    );
+  let configFile = options.config ? resolve(root, options.config) : !ambiguous && configs[0] ? resolve(root, configs[0]) : undefined;
+  const configFiles: string[] = [];
+  let configExport: string | undefined;
+  let configError: Error | undefined = ambiguity;
+  let entries: string[] | undefined;
+  let entryRoot = root;
+  if (configFile) try {
+    const graph = await readConfigGraph(configFile, configFiles);
+    configFile = graph.file;
+    configExport = graph.exportName;
+    const { ast, config } = graph;
     const resolveValue = property(config, 'resolve')?.value;
     if (resolveValue && !t.isObjectExpression(resolveValue))
       throw new Error('VITE_CONFIG_DYNAMIC: resolve must be a static object.');
@@ -163,7 +114,7 @@ export async function createProjectResolver(
           t.isIdentifier(value.arguments[1].property, { name: 'url' })
         )
           return fileURLToPath(
-            new URL(value.arguments[0].value, pathToFileURL(configFile)),
+            new URL(value.arguments[0].value, pathToFileURL(graph.file)),
           );
       }
       throw new Error(
@@ -178,6 +129,27 @@ export async function createProjectResolver(
         );
       aliases.push({ find, replacement });
     };
+    const rootValue = property(config, 'root')?.value;
+    entryRoot = rootValue ? resolve(root, readString(rootValue)) : root;
+    const build = property(config, 'build')?.value;
+    if (build && !t.isObjectExpression(build)) throw new Error('VITE_CONFIG_DYNAMIC: build must be a static object; select source entries explicitly.');
+    if (t.isObjectExpression(build) && build.properties.some(item => t.isSpreadElement(item) || item.computed))
+      throw new Error('VITE_CONFIG_DYNAMIC: build cannot contain spreads or computed keys.');
+    const rollup = t.isObjectExpression(build) ? property(build, 'rollupOptions')?.value : undefined;
+    if (rollup && !t.isObjectExpression(rollup)) throw new Error('VITE_CONFIG_DYNAMIC: rollupOptions must be a static object.');
+    if (t.isObjectExpression(rollup) && rollup.properties.some(item => t.isSpreadElement(item) || item.computed))
+      throw new Error('VITE_CONFIG_DYNAMIC: rollupOptions cannot contain spreads or computed keys.');
+    const input = t.isObjectExpression(rollup) ? property(rollup, 'input')?.value : undefined;
+    if (input) {
+      const values = t.isArrayExpression(input) ? input.elements : t.isObjectExpression(input)
+        ? input.properties.map(item => {
+          if (!t.isObjectProperty(item) || item.computed) throw new Error('ENTRY_DYNAMIC: use static build input names and files.');
+          return item.value;
+        }) : [input];
+      entries = values.map(value => resolve(entryRoot, readString(value)));
+    } else if (t.isObjectExpression(build) && property(build, 'ssr')?.value && !t.isBooleanLiteral(property(build, 'ssr')!.value)) {
+      entries = [resolve(entryRoot, readString(property(build, 'ssr')!.value))];
+    } else if (rootValue) entries = [resolve(entryRoot, 'index.html')];
     if (t.isObjectExpression(alias))
       for (const item of alias.properties) {
         if (
@@ -209,6 +181,10 @@ export async function createProjectResolver(
       throw new Error(
         'PATH_ALIAS_DYNAMIC: alias must be a static object or array.',
       );
+  } catch (error) {
+    if (!options.inventory) throw error;
+    configError = error instanceof Error ? error : new Error(String(error));
+    aliases.length = 0;
   }
   const tsconfig = ts.findConfigFile(root, ts.sys.fileExists);
   const parsed = tsconfig
@@ -257,8 +233,14 @@ export async function createProjectResolver(
           return realpath(base.slice(0, -3) + suffix);
     return undefined;
   };
+  const packageSource = createPackageSourceResolver(root, localFile);
   return {
     configFile,
+    configExport,
+    configFiles,
+    configError,
+    entries,
+    entryRoot,
     paths: !!compilerOptions.paths,
     compilerOptions,
     async resolve(from, specifier) {
@@ -300,7 +282,7 @@ export async function createProjectResolver(
         throw new Error(
           `UNRESOLVED_IMPORT: tsconfig path ${specifier} has no source target.`,
         );
-      return undefined;
+      return packageSource(from, specifier);
     },
   };
 }

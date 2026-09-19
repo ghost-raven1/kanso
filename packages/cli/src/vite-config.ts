@@ -6,8 +6,8 @@ const generate =
   generateModule;
 
 /** Verify the plugin is reachable from plugins, rather than merely called somewhere. */
-export function hasKansoPlugin(source: string, file: string): boolean {
-  const { ast, config } = staticViteConfig(source, file);
+export function hasKansoPlugin(source: string, file: string, exportName = 'default'): boolean {
+  const { ast, config } = staticViteConfig(source, file, exportName);
   const imports = new Set<string>();
   const constants = new Map<string, t.Expression>();
   for (const statement of ast.program.body) {
@@ -57,8 +57,8 @@ export function hasKansoPlugin(source: string, file: string): boolean {
 }
 
 /** Enable Vite's built-in paths support without evaluating configuration. */
-export function enableTsconfigPaths(source: string, file: string): string {
-  const { ast, config } = staticViteConfig(source, file);
+export function enableTsconfigPaths(source: string, file: string, exportName = 'default'): string {
+  const { ast, config } = staticViteConfig(source, file, exportName);
   let entry = property(config, 'resolve');
   if (!entry) {
     entry = t.objectProperty(t.identifier('resolve'), t.objectExpression([]));

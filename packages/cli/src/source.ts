@@ -7,12 +7,13 @@ import { TraceMap, originalPositionFor } from '@jridgewell/trace-mapping';
 import { compile } from '@kanso/compiler';
 import type { Scope } from '@babel/traverse';
 import type { Diagnostic } from './types.js';
+import { extendsReactComponent } from './react-classes.js';
 
 const traverse = (traverseModule as unknown as { default: typeof traverseModule }).default ?? traverseModule;
 const generate = (generatorModule as unknown as { default: typeof generatorModule }).default ?? generatorModule;
 const supported = new Set(['useState', 'useReducer', 'useEffect', 'useMemo', 'useCallback', 'useRef', 'useId', 'createContext', 'useContext', 'lazy', 'Suspense', 'Fragment', 'ReactNode', 'FC', 'ComponentType', 'PropsWithChildren', 'Dispatch', 'SetStateAction', 'ComponentProps', 'CSSProperties', 'RefObject']);
 
-export function migrateSource(source: string, file: string, approvedHooks: ReadonlySet<string> = new Set()): { code: string; diagnostics: Diagnostic[]; imports: string[] } {
+export function migrateSource(source: string, file: string, approvedHooks: ReadonlySet<string> = new Set(), options: { configuration?: boolean } = {}): { code: string; diagnostics: Diagnostic[]; imports: string[] } {
   const ast = parse(source, { sourceType: 'module', plugins: ['typescript', 'jsx'] });
   const diagnostics: Diagnostic[] = [];
   const imports: string[] = [];
@@ -23,6 +24,7 @@ export function migrateSource(source: string, file: string, approvedHooks: Reado
   const hydrateNames = new Set<t.Identifier>();
   const stateNames = new Set<t.Identifier>();
   const setters = new Set<t.Identifier>();
+  const setterStates = new Map<t.Identifier, t.Identifier>();
   const customHooks = new Set<t.Identifier>();
   const binding = (scope: Scope, name: string) => scope.getBinding(name)?.identifier;
   const hookCandidates = new Set<t.Identifier>();
@@ -30,6 +32,9 @@ export function migrateSource(source: string, file: string, approvedHooks: Reado
   const report = (node: t.Node, code: string, message: string, severity: 'error' | 'warning' = 'error') => {
     diagnostics.push({ file, line: node.loc?.start.line, column: node.loc ? node.loc.start.column + 1 : undefined, endLine: node.loc?.end.line, endColumn: node.loc ? node.loc.end.column + 1 : undefined, code, message, severity, hint: diagnosticHint(code), docsUrl: 'https://github.com/ghost-raven1/kanso/blob/main/docs/migration.md' });
   };
+  traverse(ast, { Class(path) {
+    if (extendsReactComponent(path)) report(path.node, 'CLASS_COMPONENT', 'React component classes must become function components.');
+  } });
   traverse(ast, {
     ImportDeclaration(path) {
       const from = path.node.source.value;
@@ -63,6 +68,11 @@ export function migrateSource(source: string, file: string, approvedHooks: Reado
                 if (!supported.has(name)) { report(member.node, 'UNSUPPORTED_API', `React.${name} needs a manual port.`); continue; }
                 const local = path.scope.generateUidIdentifier(name);
                 path.node.specifiers.push(t.importSpecifier(local, t.identifier(name)));
+                if (member.parentPath?.isJSXOpeningElement()) {
+                  const element = member.parentPath.parentPath;
+                  if (element?.isJSXElement() && element.node.closingElement)
+                    element.node.closingElement.name = t.jsxIdentifier(local.name);
+                }
                 member.replaceWith(t.jsxIdentifier(local.name));
               } else if (member?.isMemberExpression() && !member.node.computed && t.isIdentifier(member.node.property)) {
                 const name = member.node.property.name;
@@ -95,7 +105,6 @@ export function migrateSource(source: string, file: string, approvedHooks: Reado
         for (const specifier of path.node.specifiers) hooks.set(specifier.local, 'vitePlugin');
       }
     },
-    ClassDeclaration(path) { if (path.node.superClass) report(path.node, 'CLASS_COMPONENT', 'Class inheritance requires review; component classes must become functions.'); },
     Function(path) {
       const name = (path.isFunctionDeclaration() || path.isFunctionExpression()) && path.node.id ? path.node.id.name
         : path.parentPath.isVariableDeclarator() && t.isIdentifier(path.parentPath.node.id) ? path.parentPath.node.id.name : '';
@@ -125,6 +134,8 @@ export function migrateSource(source: string, file: string, approvedHooks: Reado
         if (t.isArrayPattern(path.node.id)) {
           if (t.isIdentifier(path.node.id.elements[0])) stateNames.add(path.node.id.elements[0]);
           if (t.isIdentifier(path.node.id.elements[1])) setters.add(path.node.id.elements[1]);
+          const [state, setter] = path.node.id.elements;
+          if (t.isIdentifier(state) && t.isIdentifier(setter)) setterStates.set(setter, state);
         }
       }
       if (roots.has(binding(path.scope, path.node.init.callee.name)!) && t.isIdentifier(path.node.id)) roots.add(path.node.id);
@@ -156,17 +167,26 @@ export function migrateSource(source: string, file: string, approvedHooks: Reado
       }
     },
     Function(path) {
-      let writes = 0;
+      const writes = new Map<t.Identifier, number>();
+      let unknownWrites = 0;
       let readsAfterWrite = false;
       path.traverse({
         Function(inner) { inner.skip(); },
         CallExpression: { exit(call) {
           const callee=call.node.callee;
-          if (t.isIdentifier(callee) && setters.has(binding(call.scope, callee.name)!) || t.isMemberExpression(callee) && t.isIdentifier(callee.object) && customObjects.has(binding(call.scope, callee.object.name)!)) writes++;
+          if (t.isIdentifier(callee) && setters.has(binding(call.scope, callee.name)!)) {
+            const state = setterStates.get(binding(call.scope, callee.name)!);
+            if (state) writes.set(state, (writes.get(state) ?? 0) + 1);
+            else unknownWrites++;
+          } else if (t.isMemberExpression(callee) && t.isIdentifier(callee.object) && customObjects.has(binding(call.scope, callee.object.name)!)) unknownWrites++;
         } },
-        ReferencedIdentifier(ref) { if (writes && stateNames.has(binding(ref.scope, ref.node.name)!)) readsAfterWrite = true; },
+        ReferencedIdentifier(ref) {
+          const state = binding(ref.scope, ref.node.name);
+          if (state && stateNames.has(state) && (writes.has(state) || unknownWrites)) readsAfterWrite = true;
+        },
       });
-      if (writes > 1 || readsAfterWrite) report(path.node, 'STATE_SNAPSHOT', 'Multiple updates or reads after a setter require review: Kanso reads live state.');
+      if ([...writes.values()].some(count => count > 1) || unknownWrites > 1 || unknownWrites && writes.size || readsAfterWrite)
+        report(path.node, 'STATE_SNAPSHOT', 'Repeated updates of the same state or reads after its setter require review: Kanso reads live state.');
       const delayed = path.node.async || path.parentPath.isCallExpression() && (
         t.isIdentifier(path.parentPath.node.callee) && ['setTimeout', 'setInterval', 'queueMicrotask'].includes(path.parentPath.node.callee.name)
         || t.isMemberExpression(path.parentPath.node.callee) && t.isIdentifier(path.parentPath.node.callee.property, { name: 'then' }));
@@ -177,7 +197,7 @@ export function migrateSource(source: string, file: string, approvedHooks: Reado
   });
   const generated = changed ? generate(ast, { retainLines: false, sourceMaps: true, sourceFileName: file }, source) : undefined;
   const code = generated ? generated.code + '\n' : source;
-  if (!diagnostics.some(item => item.severity === 'error') && !file.includes('vite.config')) {
+  if (!diagnostics.some(item => item.severity === 'error') && !options.configuration && !file.includes('vite.config')) {
     try { compile(code, { filename: file }); }
     catch (error) {
       const message = stripVTControlCharacters(error instanceof Error ? error.message : String(error));

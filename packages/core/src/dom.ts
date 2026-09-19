@@ -1,6 +1,22 @@
 import { batch, onCleanup } from 'solid-js';
 import type { Ref } from './types.js';
 
+/** Explicit raw markup is not sanitized; applications must supply trusted HTML. */
+export function rawHtml(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value !== 'object' || !('__html' in value)) throw new TypeError('KANSO_RAW_HTML: expected { __html: string }.');
+  const html = value.__html;
+  if (html == null) return '';
+  if (typeof html !== 'string' && typeof html !== 'number') throw new TypeError('KANSO_RAW_HTML: __html must be a string or number.');
+  return String(html);
+}
+
+/** Keys need a compiler-owned boundary; a spread must not silently discard one. */
+export function componentProps<T extends Record<string, unknown> | undefined | null>(source: T): T {
+  if (source && 'key' in source) throw new TypeError('KANSO_SPREAD_KEY: move key to an explicit JSX attribute.');
+  return source;
+}
+
 /** Preserve native currentTarget and batch all writes within a DOM event. */
 export function eventHandler<E extends Event>(read: () => ((event: E) => unknown) | undefined | null): (event: E) => void {
   return event => { batch(() => read()?.(event)); };
@@ -29,9 +45,12 @@ export function assignRef<T>(ref: Ref<T | null> | ((element: T) => void)): (elem
 }
 
 /** Keep spread getters live while translating native DOM conventions. */
-export function normalizeProps(value: Record<string, unknown> | undefined, tag: string): Record<string, unknown> {
-  const source = value ?? {};
+export function normalizeProps(value: Record<string, unknown> | undefined, tag: string, hasChildren = false): Record<string, unknown> {
+  const source = componentProps(value) ?? {};
+  if (source.dangerouslySetInnerHTML != null && (hasChildren || source.children != null))
+    throw new TypeError('KANSO_RAW_HTML_CHILDREN: raw HTML cannot be combined with children.');
   const rename = (key: string) => key === 'className' ? 'class' : key === 'htmlFor' ? 'for'
+    : key === 'dangerouslySetInnerHTML' ? 'innerHTML'
     : key === 'onChange' && ['input', 'textarea'].includes(tag) ? 'onInput' : key;
   const keys = new Map(Object.keys(source).filter(key => key !== 'key').map(key => [rename(key), key]));
   return new Proxy({}, {
@@ -41,6 +60,7 @@ export function normalizeProps(value: Record<string, unknown> | undefined, tag: 
       if (typeof key !== 'string') return undefined;
       const original = keys.get(key) ?? key;
       const entry = source[original];
+      if (original === 'dangerouslySetInnerHTML') return rawHtml(entry);
       if (original === 'style') return styleObject(entry as Parameters<typeof styleObject>[0]);
       if (original === 'ref' && entry) return assignRef(entry as Parameters<typeof assignRef>[0]);
       if (/^on[A-Z]/.test(original)) return eventHandler(() => source[original] as ReturnType<Parameters<typeof eventHandler>[0]>);

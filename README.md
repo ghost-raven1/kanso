@@ -2,7 +2,7 @@
 
 React-shaped TSX. Solid reactivity. No React runtime.
 
-Рабочая реализация **0.6.0**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO, микрофронты и необязательные инструменты Web/Service Workers. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Совместимость с React-зависимыми библиотеками не предоставляется.
+Рабочая реализация **0.6.1**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO, микрофронты и необязательные инструменты Web/Service Workers. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Совместимость с React-зависимыми библиотеками не предоставляется.
 
 ```tsx
 import { useState, useEffect } from '@kanso/core';
@@ -191,7 +191,7 @@ node packages/cli/dist/bin.js migrate --apply --root ../my-react-app --local "$P
 
 Применение меняет импорты, поддерживаемые типы, клиентский entry, Vite, TypeScript и package.json. Повторный запуск не создаёт новых изменений. При блокирующей диагностике ни один файл приложения не записывается. Lockfile обновляется последующим `npm install`, затем следует выполнить проверки самого приложения.
 
-Подробнее: [границы миграции](docs/migration.md). MUI, Ant Design, React Router, Next.js и другие React-зависимые библиотеки автоматически не переносятся.
+Подробнее: [границы миграции](docs/migration.md) и [следующие этапы подготовки](docs/migration-readiness.md). В 0.6.1 доступны несколько `--entry`/`--config`, аудит переэкспортов Vite и отчёт охвата графа. MUI, Ant Design, React Router, Next.js и другие React-зависимые библиотеки автоматически не переносятся.
 
 ## Веб-приложение
 
@@ -247,6 +247,7 @@ export const handle = createRequestHandler({
 npm run check             # пакеты, TypeScript, Vitest, production SSR, dependency audit
 npx playwright install chromium firefox webkit
 npm run test:browser      # SSR/hydration, ввод, DOM identity, формы, список, lazy, mobile
+npm run test:compatibility # key reset, raw HTML, SSR/hydration и cleanup
 npm run test:seo          # production HTML, sitemap и exit codes диагностики
 npm run test:tooling      # настоящая миграция, npm install, build, HMR, server-only boundary
 npm run test:hmr          # состояние, refs, IDs, cleanup, Context, reset и ошибки HMR
@@ -265,9 +266,9 @@ npm run bench            # production Kanso/Solid/React/memo/React Compiler
 Linux-проверка всех браузеров, в том числе при проблеме запуска Firefox на macOS 27:
 
 ```bash
-docker build -f Dockerfile.test -t kanso-test:0.6.0 .
+docker build -f Dockerfile.test -t kanso-test:0.6.1 .
 mkdir -p output/linux
-docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.6.0
+docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.6.1
 ```
 
 Результаты и скриншоты сохраняются в `output/`. Исходные условия и результаты замеров — в [отчёте](docs/validation.md). CI описан в `.github/workflows/ci.yml`.

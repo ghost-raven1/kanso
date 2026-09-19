@@ -1,4 +1,4 @@
-import {
+import React, {
   createContext,
   useContext,
   useId,
@@ -9,6 +9,18 @@ import {
 } from 'react';
 const Theme = createContext('light');
 const style: CSSProperties = { padding: 8 };
+export class DraftError extends Error {}
+
+function Draft() {
+  const [value, setValue] = useState('');
+  return (
+    <input
+      aria-label="Draft"
+      value={value}
+      onChange={event => setValue(event.currentTarget.value)}
+    />
+  );
+}
 function Field(props: ComponentProps<'input'>) {
   return <input {...props} />;
 }
@@ -19,6 +31,8 @@ function Preview() {
 export function App() {
   const [theme, setTheme] = useState('light');
   const [name, setName] = useState('Alex');
+  const [revision, setRevision] = useState(0);
+  const [markup, setMarkup] = useState('<b>Initial draft</b>');
   const input = useRef<HTMLInputElement | null>(null);
   const id = useId();
   return (
@@ -41,6 +55,18 @@ export function App() {
           Theme
         </button>
         <button onClick={() => input.current?.focus()}>Focus</button>
+        <React.Fragment>
+          <Draft key={revision} />
+          <article data-markup dangerouslySetInnerHTML={{ __html: markup }} />
+          <button
+            onClick={() => {
+              setRevision(value => value + 1);
+              setMarkup('<em>Draft reset</em>');
+            }}
+          >
+            Reset draft
+          </button>
+        </React.Fragment>
       </main>
     </Theme.Provider>
   );

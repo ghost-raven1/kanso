@@ -1,6 +1,12 @@
 # Проверка реализации — 20 сентября 2026
 
-Версия Kanso 0.6.0. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
+Версия Kanso 0.6.1. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
+
+## Подготовка миграции 0.6.1
+
+`tests/migration-precision.test.ts`, `tests/migration-graph.test.ts` и `tests/jsx-compatibility.test.ts` проверяют классы/bindings, несколько entries/configs, статические переэкспорты, source packages, no-write/idempotence, key reset и raw HTML. `npm run test:compatibility` собирает независимые серверный и клиентский outputs и проверяет исходный HTML, DOM identity, ввод до гидратации, useId, соседние экземпляры и cleanup в Chromium/Firefox/WebKit. Этот сценарий включён в CI.
+
+Оставшиеся контракты отделены от реализованных в [плане подготовки](migration-readiness.md). Наличие отчёта полного охвата графа не означает, что приложение прошло проверку совместимости.
 
 ## Микрофронты и workers 0.6
 

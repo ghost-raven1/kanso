@@ -26,6 +26,7 @@ export namespace JSX {
       key?: string | number;
       className?: string;
       htmlFor?: string;
+      dangerouslySetInnerHTML?: { __html: string | number | null | undefined } | null;
       ref?: Ref<ElementFor<K> | null> | ((element: ElementFor<K>) => void);
       style?: SolidJSX.CSSProperties | Record<string, string | number | undefined> | string;
     };

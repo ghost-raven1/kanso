@@ -62,6 +62,8 @@ async function formScenario(browser, mode) {
       await page.goForward();
       await page.getByRole('heading', { name: 'Лампа Akari', exact: true }).waitFor();
     }
+    // Router content and head subscriptions can settle on different browser turns.
+    await page.waitForFunction(() => document.title.includes('Лампа Akari'));
     assert.match(await page.title(), /Лампа Akari/);
     assert.equal(await page.locator('title').count(), 1);
     assert.equal(await page.locator('link[rel=canonical]').count(), 1);

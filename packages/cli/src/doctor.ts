@@ -2,6 +2,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import ts from 'typescript';
 import { hasKansoPlugin } from './vite-config.js';
+import { readConfigGraph } from './config-graph.js';
 import { readMicrofrontendsConfig } from './microfrontends.js';
 import { RUNTIME_VERSIONS } from '@kanso/microfrontends/manifest';
 import { dependsOnReact } from './project.js';
@@ -208,10 +209,8 @@ export async function doctor(
     if (viteFiles.length > 1) throw new Error('Keep one unambiguous Vite configuration for the doctor audit.');
     if (viteFiles[0]) {
       const viteFile = join(root, viteFiles[0]);
-      enabled = hasKansoPlugin(
-        inspectableConfig(await readFile(viteFile, 'utf8'), viteFile),
-        viteFile,
-      );
+      const graph = await readConfigGraph(viteFile, [], inspectableConfig);
+      enabled = hasKansoPlugin(graph.source, graph.file, graph.exportName);
     }
     if (!enabled)
       problem(
