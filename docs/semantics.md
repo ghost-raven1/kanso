@@ -97,9 +97,3 @@ HTML кешируется на сервере только при `cache: { publ
 `@kanso/workers/service` не регистрирует Service Worker при импорте или SSR. Регистрация, проверка обновления, активация и удаление вызываются явно. Активация не перезагружает документ и не удаляет кеши старых выпусков. `dispose()` освобождает только слушателей контроллера.
 
 `service-runtime` кеширует только явно разрешённые статические GET-ресурсы. HTML/JSON, Kanso data/action endpoints, авторизованные запросы, `private`/`no-store` ответы и мутации обходят кеш. Версия из сборки отделяет кеши; ключ содержит полный URL. Единственное отдельно разрешаемое HTML-исключение — публичный self-contained offline fallback, отдаваемый только при сбое сети. Никакой очереди или автоматического повтора actions нет. Эти пакеты не вводят React, Solid или federation в worker.
-
-## Происхождение SSR-решений
-
-Из текущего BRO PROKAT изучены `frontend/scripts/public-ssr-server.mjs`, `frontend/vite.public-ssr-assets.ts` и `frontend/src/ssr/recoverPublicHomeHydration.ts`. Перенесены принципы: отдельные сборки, манифест, build identity, initial data, bounded TTL/single-flight cache и сохранение серверного HTML при сбое загрузки клиента.
-
-Код рендера реализован заново на Solid. React renderToString, Emotion/MUI, федерация и предметное состояние BRO не переносились; исходный проект не изменялся.
