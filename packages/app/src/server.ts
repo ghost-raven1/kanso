@@ -1,14 +1,20 @@
 import { createComponent } from 'solid-js';
-import { generateHydrationScript, renderToStringAsync } from 'solid-js/web';
+import { generateHydrationScript, renderToStringAsync, useAssets } from 'solid-js/web';
 import { App } from './router.js';
 import { matchRoute } from './routes.js';
 import { serialize } from './serialization.js';
 import { createRenderCache } from './cache.js';
+import { createHeadRegistry } from './seo/registry.js';
+import { routeSeoLevels } from './seo/routes.js';
+import { renderHead } from './seo/resolve.js';
+import type { SeoSnapshot } from './seo/types.js';
+import { createSeoDiscovery } from './seo/sitemap.js';
 import type { Bootstrap, RequestHandlerOptions, RouteHandlers } from './types.js';
 
 export type { RequestHandlerOptions, LoaderArgs, RouteHandlers } from './types.js';
 export { createRenderCache } from './cache.js';
 export { serialize } from './serialization.js';
+export type { RobotsOptions, SitemapOptions, SitemapEntry } from './seo/types.js';
 
 const escape = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
 
@@ -22,7 +28,8 @@ function routeUrl(raw: string, origin: string): URL {
 export function createRequestHandler<C = unknown>(options: RequestHandlerOptions<C>): (request: Request) => Promise<Response> {
   const cache = createRenderCache<Response>(options.maxCacheEntries);
   const timeoutMs = options.timeoutMs ?? 10000;
-  return async request => {
+  const discovery = createSeoDiscovery(options);
+  const dispatch = async (request: Request): Promise<Response> => {
     const incoming = new URL(request.url);
     const dataRequest = incoming.pathname === '/_kanso/data';
     const actionId = incoming.pathname.startsWith('/_kanso/action/') ? incoming.pathname.slice('/_kanso/action/'.length) : undefined;
@@ -31,6 +38,14 @@ export function createRequestHandler<C = unknown>(options: RequestHandlerOptions
     const timer = setTimeout(() => controller.abort(new Error('Request timed out')), timeoutMs);
     let removeAbort = () => {};
     try {
+      if (options.seo && (['/robots.txt', '/sitemap.xml'].includes(incoming.pathname) || incoming.pathname.startsWith('/_kanso/sitemap/'))) {
+        const result = await Promise.race([discovery(request, signal), new Promise<never>((_resolve, reject) => {
+          const fail = () => reject(signal.reason);
+          if (signal.aborted) fail(); else signal.addEventListener('abort', fail, { once: true });
+          removeAbort = () => signal.removeEventListener('abort', fail);
+        })]);
+        if (result) return result;
+      }
       if (incoming.pathname === '/healthz') return Response.json({ ok: true, buildId: options.buildId }, { headers: { 'Cache-Control': 'no-store' } });
       if (actionId ? request.method !== 'POST' : !['GET', 'HEAD'].includes(request.method)) return new Response(null, { status: 405, headers: { Allow: actionId ? 'POST' : 'GET, HEAD' } });
       const url = dataRequest ? routeUrl(incoming.searchParams.get('url') ?? '/', incoming.origin)
@@ -60,12 +75,23 @@ export function createRequestHandler<C = unknown>(options: RequestHandlerOptions
         })));
         if (signal.aborted) throw signal.reason;
         const bootstrap: Bootstrap = { version: 1, buildId: options.buildId, url: url.pathname + url.search, data };
+        const head = options.seo ? createHeadRegistry(options.seo, () => bootstrap.url) : undefined;
+        if (head) { head.setSource(() => routeSeoLevels(options.routes, bootstrap, bootstrap.url, head.config)); bootstrap.seo = head.resolve(); }
         if (dataRequest) return Response.json(bootstrap, { headers: { 'Cache-Control': 'no-store' } });
-        const html = await renderToStringAsync(() => createComponent(App, { routes: options.routes, url: url.pathname + url.search, bootstrap }), { timeoutMs });
+        let snapshot: SeoSnapshot | undefined;
+        const render = () => {
+          // Solid runs asset collectors after buffered fragments settle, before owner disposal.
+          if (head) useAssets(() => { snapshot = head.resolve(); return ''; });
+          return createComponent(App, { routes: options.routes, url: bootstrap.url, bootstrap, seo: options.seo, head });
+        };
+        const html = await renderToStringAsync(render, { timeoutMs });
+        if (snapshot) bootstrap.seo = snapshot;
+        const headHtml = snapshot ? renderHead(snapshot) : '';
+        const htmlAttrs = snapshot ? `${snapshot.lang ? ` lang="${escape(snapshot.lang)}"` : ''}${snapshot.dir ? ` dir="${escape(snapshot.dir)}"` : ''}` : ' lang="en"';
         const styles = (options.assets.styles ?? []).map(href => `<link rel="stylesheet" href="${escape(href)}">`).join('');
         const preloads = (options.assets.preloads ?? []).map(href => `<link rel="modulepreload" href="${escape(href)}">`).join('');
-        const document = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${styles}${preloads}${generateHydrationScript()}<script id="kanso-data" type="application/json">${serialize(bootstrap)}</script></head><body><div id="root">${html}</div><script type="module" src="${escape(options.assets.entry)}"></script></body></html>`;
-        return new Response(document, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Kanso-Build': options.buildId } });
+        const document = `<!doctype html><html${htmlAttrs}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${headHtml}${styles}${preloads}${generateHydrationScript()}<script id="kanso-data" type="application/json">${serialize(bootstrap)}</script></head><body><div id="root">${html}</div><script type="module" src="${escape(options.assets.entry)}"></script></body></html>`;
+        return new Response(document, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Kanso-Build': options.buildId, ...(snapshot?.noindex ? { 'X-Robots-Tag': 'noindex' } : {}) } });
       };
       const policy = match.route.cache;
       const canCache = policy?.public && !dataRequest && !actionId && !request.headers.has('Cookie') && !request.headers.has('Authorization');
@@ -97,5 +123,11 @@ export function createRequestHandler<C = unknown>(options: RequestHandlerOptions
         status: signal.aborted ? 504 : error instanceof URIError ? 400 : 500, headers: { 'Cache-Control': 'no-store' },
       });
     } finally { clearTimeout(timer); removeAbort(); }
+  };
+  return async request => {
+    const response = await dispatch(request);
+    if (options.seo?.indexable !== false) return response;
+    const headers = new Headers(response.headers); headers.set('X-Robots-Tag', 'noindex');
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   };
 }

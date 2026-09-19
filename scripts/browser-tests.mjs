@@ -35,14 +35,19 @@ try {
       await page.locator('#count').waitFor();
       await page.evaluate(() => {
         window.beforeHydration = document.querySelector('#count');
+        window.beforeTitle = document.querySelector('title');
+        window.beforeCanonical = document.querySelector('link[rel=canonical]');
         window.beforeInput = document.querySelector('[data-row="A"] input');
         window.beforeInput.value = 'Typed before JavaScript';
         window.beforeInput.focus();
       });
+      assert.equal(await page.title(), 'Kanso · 0', `${name}: SSR title before JavaScript`);
       release();
       await page.waitForFunction(() => window.kansoReady);
       assert.equal(await page.evaluate(() => window.beforeHydration === document.querySelector('#count')), true, `${name}: DOM preserved`);
       assert.equal(await page.locator('[data-row="A"] input').inputValue(), 'Typed before JavaScript', `${name}: pre-hydration input`);
+      assert.equal(await page.evaluate(() => window.beforeTitle === document.querySelector('title') && window.beforeCanonical === document.querySelector('link[rel=canonical]')), true, `${name}: head nodes adopted`);
+      assert.equal(await page.locator('head title').count(), 1);
       assert.equal(loads, 0, `${name}: no duplicate initial loader request`);
       await page.locator('#increment').click();
       assert.equal(await page.locator('#count').textContent(), '1');
@@ -77,6 +82,45 @@ try {
       await page.reload();
       await page.waitForFunction(() => window.kansoReady);
       await page.getByRole('heading', { name: 'This route arrived on demand.' }).waitFor();
+      assert.equal(await page.title(), 'Lazy route · Kanso');
+      await page.getByRole('link', { name: '04 · SEO' }).click();
+      await page.locator('#seo-title').fill('A reactive SEO title');
+      await page.waitForFunction(() => document.title === 'A reactive SEO title · Kanso');
+      assert.equal(await page.locator('meta[property="og:title"]').getAttribute('content'), 'A reactive SEO title · Kanso');
+      assert.equal(await page.locator('[data-kanso-head="jsonld:article"]').count(), 1);
+      assert.equal(await page.locator('head title').count(), 1);
+      await page.screenshot({ path: `output/browser/${name}-seo.png`, fullPage: true });
+      await page.getByRole('link', { name: 'Страница из loader →' }).click();
+      await page.waitForFunction(() => document.title === 'SEO example: first · Kanso');
+      assert.equal(await page.locator('[data-kanso-head="jsonld:article"]').count(), 0);
+      await page.getByRole('link', { name: 'Second', exact: true }).click();
+      await page.waitForFunction(() => document.title === 'SEO example: second · Kanso');
+      await page.goBack();
+      await page.waitForFunction(() => document.title === 'SEO example: first · Kanso');
+      await page.goForward();
+      await page.waitForFunction(() => document.title === 'SEO example: second · Kanso');
+      let releaseOld;
+      let intercepted;
+      const oldGate = new Promise(resolve => { releaseOld = resolve; });
+      const oldRequest = new Promise(resolve => { intercepted = resolve; });
+      await page.route('**/_kanso/data?*', async route => {
+        const target = new URL(route.request().url()).searchParams.get('url');
+        if (target !== '/seo/example/first') { await route.continue(); return; }
+        intercepted(); await oldGate;
+        await route.continue().catch(() => {});
+      });
+      await page.getByRole('link', { name: 'First', exact: true }).click();
+      await oldRequest;
+      await page.getByRole('link', { name: '04 · SEO' }).click();
+      await page.waitForFunction(() => document.title === 'SEO that ships with HTML · Kanso');
+      releaseOld();
+      await page.waitForTimeout(100);
+      assert.equal(await page.title(), 'SEO that ships with HTML · Kanso', 'Stale navigation cannot overwrite current metadata');
+      await page.unroute('**/_kanso/data?*');
+      await page.goto(origin + '/seo/example/second');
+      await page.waitForFunction(() => window.kansoReady);
+      assert.equal(await page.title(), 'SEO example: second · Kanso');
+      assert.equal(await page.locator('link[rel="canonical"]').count(), 1);
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(origin);
       await page.waitForFunction(() => window.kansoReady);
@@ -89,7 +133,7 @@ try {
       assert.equal(await offline.locator('#count').textContent(), '0');
       assert.equal(await offline.locator('[data-row]').count(), 3);
       await offline.close();
-      results.push({ browser: name, version: browser.version(), passed: true, checks: ['SSR DOM identity', 'pre-hydration input', 'no duplicate loader', 'fine-grained updates', 'key identity and focus', 'effect disposal', 'forms and revalidation', 'lazy SSR', 'mobile layout', 'failed JavaScript retains HTML'] });
+      results.push({ browser: name, version: browser.version(), passed: true, checks: ['SSR DOM identity', 'pre-hydration input', 'no duplicate loader', 'fine-grained updates', 'key identity and focus', 'effect disposal', 'forms and revalidation', 'lazy SSR', 'mobile layout', 'failed JavaScript retains HTML', 'SSR metadata', 'head hydration identity', 'reactive SEO', 'JSON-LD cleanup', 'route parameters and back/forward SEO', 'stale SEO response rejected'] });
       console.log(`${name}: all browser scenarios passed`);
     } finally { await browser.close(); }
   }

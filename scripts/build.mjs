@@ -6,7 +6,7 @@ import solid from 'babel-preset-solid';
 
 const entries = {
   core: ['index', 'internal', 'client', 'jsx-runtime'],
-  compiler: ['index'], vite: ['index'], app: ['index', 'server', 'node'], cli: ['index', 'bin'],
+  compiler: ['index'], vite: ['index'], app: ['index', 'server', 'node', 'seo'], cli: ['index', 'bin'],
 };
 for (const [name, files] of Object.entries(entries)) {
   await rm(`packages/${name}/dist`, { recursive: true, force: true });

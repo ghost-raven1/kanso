@@ -1,4 +1,4 @@
-# Исполнимая спецификация 0.2
+# Исполнимая спецификация 0.3
 
 Основные контракты проверяют `tests/compiler-dom.test.ts`, `tests/contracts.test.ts`, `tests/custom-hooks.test.ts`, `tests/server.test.ts` и браузерные сценарии.
 
@@ -59,6 +59,10 @@ Async/generator hooks, условные вызовы, ранние returns, rest
 Условные JSX и терминальные `if (...) return ...; return ...` становятся реактивными областями. Branch-specific setup переносится в дочерний компонент. Присваивание реактивному binding, экспорт живой локальной переменной и динамический JSX tag требуют явной другой формы и диагностируются.
 
 Публичные lazy, Suspense, ErrorBoundary и Context используют контракт Solid. ErrorBoundary принимает fallback с ошибкой и reset; Context передаёт сервисы и реактивные объекты, замена primitive Provider.value не обещает React-семантику.
+
+## SEO
+
+`@kanso/app/seo` предоставляет единый контракт метаданных для SSR, гидратации и навигации. Настройки, приоритеты, robots/sitemap и диагностика описаны в [SEO API](seo.md). Каждый запрос имеет отдельный collector; окончательный снимок сохраняется до disposal серверных владельцев. Повторные loader-запросы при гидратации не добавляются.
 
 ## SSR и данные
 

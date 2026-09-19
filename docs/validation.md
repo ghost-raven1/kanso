@@ -1,16 +1,23 @@
 # Проверка реализации — 19 сентября 2026
 
-Версия Kanso 0.2.0. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
+Версия Kanso 0.3.0. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
 
 ## Подтверждённые результаты
 
-- npm run check: сборка пяти пакетов, TypeScript, **36/36 Vitest**, клиентская и серверная production-сборки, аудит lockfile — успешно.
-- В lockfile проверены 217 записей: React, React DOM, reconciler и React Compiler отсутствуют. Маркер server-only implementation отсутствует в клиентских чанках.
+- npm run check: сборка пяти пакетов, TypeScript, **52/52 Vitest**, клиентская и серверная production-сборки, аудит lockfile — успешно.
+- В lockfile проверены 227 записей: React, React DOM, reconciler и React Compiler отсутствуют. Маркер server-only implementation отсутствует в клиентских чанках.
 - npm run test:tooling: собственный React+Vite fixture мигрирован, результат идемпотентен; выполнены npm install, TypeScript, production build, HMR компонента и пользовательских hooks из отдельных .ts/.js-файлов. Проверены переэкспорт, alias и вложенный JavaScript-hook. Попытка импортировать .server.ts в браузер блокирует сборку.
 - Chromium и WebKit прошли проверки на macOS. Все три движка прошли тот же production-набор в Linux-контейнере: chromium 153.0.8010.12, firefox 155.0, webkit 26.6.
 - Для каждого браузера проверены: сохранение DOM при hydration; ввод до JavaScript; отсутствие повторного initial loader; точечные обновления; ключи, состояние и фокус; cleanup; validation/action/revalidation; lazy route и direct SSR; mobile overflow; сохранение HTML при недоступном JS.
 
 Firefox на macOS 27 не стартовал через subprocess из-за [известной проблемы Mozilla](https://bugzilla.mozilla.org/show_bug.cgi?id=2060476). Проверка выполнена на настоящем Firefox в официальном Linux-образе Playwright. WebKit означает движок Playwright, а не проверку установленного Safari.
+
+## SEO 0.3
+
+- Проверены metadata merge/null, шаблоны, canonical, OG images, hreflang, безопасный JSON-LD, наследование route/JSX и disposal ошибочной SSR-ветки.
+- Параллельный lazy SSR сохраняет раздельные заголовки и JSON-LD. Robots и sitemap не вызывают loaders; проверены 50 001 URL, поколения частей, forced noindex, HEAD, таймаут и восстановление provider.
+- npm run test:seo проверяет пять production-страниц, sitemap и реальные CLI exit codes: ошибки — 2, предупреждения — 0, сбой команды — 1.
+- Браузерные сценарии дополнены принятием SSR head-узлов, реактивным SEO, JSON-LD cleanup, параметрами маршрута, историей назад/вперёд и отклонением устаревшего ответа.
 
 ## Production benchmark — исходная версия 0.1.0
 
@@ -34,4 +41,4 @@ FCP/LCP измерены для этих небольших CSR-эталонов
 
 ## Граница готовности
 
-Доступна работающая версия 0.2 с перечисленными контрактами, пользовательскими hooks и проверяемым мигратором. Это не утверждение о полной совместимости произвольного React-кода или всей экосистемы. Ограничения форм параметров/возврата hooks, Context, типов, map callback и управления потоком перечислены в semantics.md и migration.md.
+Доступна работающая версия 0.3 с перечисленными контрактами, пользовательскими hooks и проверяемым мигратором. Это не утверждение о полной совместимости произвольного React-кода или всей экосистемы. Ограничения форм параметров/возврата hooks, Context, типов, map callback и управления потоком перечислены в semantics.md и migration.md.

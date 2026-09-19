@@ -1,9 +1,27 @@
 {
-  "name": "@kanso/cli", "version": "0.2.0", "type": "module", "files": ["dist"],
-  "bin": { "kanso": "./dist/bin.js" },
-  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "name": "@kanso/cli",
+  "version": "0.3.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "kanso": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "dependencies": {
-    "@kanso/compiler": "0.2.0", "@babel/parser": "^7.28.0", "@babel/traverse": "^7.28.0",
-    "@babel/generator": "^7.28.0", "@babel/types": "^7.28.0", "typescript": "^5.9.0"
+    "@babel/generator": "^7.28.0",
+    "@babel/parser": "^7.28.0",
+    "@babel/traverse": "^7.28.0",
+    "@babel/types": "^7.28.0",
+    "@kanso/compiler": "0.3.0",
+    "fast-xml-parser": "^5.11.1",
+    "parse5": "^8.0.1",
+    "typescript": "^5.9.0"
   }
 }

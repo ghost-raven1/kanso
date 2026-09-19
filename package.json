@@ -1,6 +1,6 @@
 {
   "name": "kanso-workspace",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -20,7 +20,8 @@
     "check:dependencies": "node scripts/check-dependencies.mjs",
     "bench": "node scripts/benchmark.mjs",
     "check": "npm run build && npm run typecheck && npm test && npm run build:example && npm run check:dependencies",
-    "test:tooling": "node scripts/tooling-tests.mjs"
+    "test:tooling": "node scripts/tooling-tests.mjs",
+    "test:seo": "node scripts/seo-tests.mjs"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",

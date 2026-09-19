@@ -12,6 +12,9 @@ const handle = nodeHandler(createHandler({ entry: manifest.entries[0], styles: m
 const types = { '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.map': 'application/json' };
 const server = createServer(async (request, response) => {
   const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
+  if (pathname === '/og.png') {
+    const image = await readFile(resolve(root, 'dist/og.png')); response.writeHead(200, { 'Content-Type': 'image/png' }).end(image); return;
+  }
   if (pathname === '/favicon.ico') { response.writeHead(204).end(); return; }
   if (pathname.startsWith('/assets/')) {
     const file = resolve(root, 'dist', `.${decodeURIComponent(pathname)}`);

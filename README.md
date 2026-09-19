@@ -2,7 +2,7 @@
 
 React-shaped TSX. Solid reactivity. No React runtime.
 
-Рабочая реализация **0.2.0**: компилятор, ядро, Vite, мигратор и веб-слой с SSR. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Это ограниченная первая версия, а не совместимый со всей экосистемой React runtime.
+Рабочая реализация **0.3.0**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Это ограниченная первая версия, а не совместимый со всей экосистемой React runtime.
 
 ```tsx
 import { useState, useEffect } from '@kanso/core';
@@ -48,6 +48,21 @@ export function Counter() {
 ```
 
 Hook и компонент создаются один раз на экземпляр. Возвращаемые значения остаются реактивными через границу модуля; ручные accessor-функции в исходном коде не нужны. Изменяемые аргументы тоже остаются живыми. Hook и его потребители должны собираться одной версией компилятора Kanso.
+
+## SEO: конфиг и JSX
+
+`@kanso/app/seo` управляет серверными и клиентскими метаданными: title/description, canonical, Open Graph, Twitter Cards, языки и JSON-LD. Общий конфиг передаётся в `App` и `createRequestHandler`; страница задаёт только отличия:
+
+```tsx
+import { Seo, JsonLd, productJsonLd } from '@kanso/app/seo';
+
+<Seo title={product.name} description={product.description} image={product.image} />;
+<JsonLd id="product" data={productJsonLd(product)} />;
+```
+
+Routes поддерживают SEO из loader и наследование от layouts. Сервер предоставляет robots.txt и sitemap с явным списком публичных страниц. `kanso seo check --url http://localhost:4173` проверяет исходный HTML и sitemap; ошибки блокируют проверку, рекомендации остаются предупреждениями.
+
+[Руководство по SEO](docs/seo.md) · интерактивный пример `/seo` в лаборатории. Генератор изображений не требуется: укажите URL готовой картинки.
 
 ## Запуск
 
@@ -165,6 +180,7 @@ export const handle = createRequestHandler({
 npm run check             # пакеты, TypeScript, Vitest, production SSR, dependency audit
 npx playwright install chromium firefox webkit
 npm run test:browser      # SSR/hydration, ввод, DOM identity, формы, список, lazy, mobile
+npm run test:seo          # production HTML, sitemap и exit codes диагностики
 npm run test:tooling      # настоящая миграция, npm install, build, HMR, server-only boundary
 npm run bench            # production Kanso/Solid/React/memo/React Compiler
 ```
@@ -174,9 +190,9 @@ npm run bench            # production Kanso/Solid/React/memo/React Compiler
 Linux-проверка всех браузеров, в том числе при проблеме запуска Firefox на macOS 27:
 
 ```bash
-docker build -f Dockerfile.test -t kanso-test:0.2.0 .
+docker build -f Dockerfile.test -t kanso-test:0.3.0 .
 mkdir -p output/linux
-docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.2.0
+docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.3.0
 ```
 
 Результаты и скриншоты сохраняются в `output/`. Исходные условия и результаты замеров — в [отчёте](docs/validation.md). CI описан в `.github/workflows/ci.yml`.

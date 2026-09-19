@@ -8,7 +8,7 @@ const dataServer: Plugin = {
   name: 'lab:data-server',
   configureServer(server) {
     server.middlewares.use(async (req, res, next) => {
-      if (!req.url?.startsWith('/_kanso/')) return next();
+      if (!req.url?.startsWith('/_kanso/') && !['/robots.txt', '/sitemap.xml'].includes(req.url ?? '')) return next();
       try {
         const module = await server.ssrLoadModule('/server.ts');
         await nodeHandler(module.createHandler({ entry: '/client.tsx' }), 'http://localhost:5173')(req, res);
