@@ -1,4 +1,5 @@
 import { parse } from '@babel/parser';
+import { stripVTControlCharacters } from 'node:util';
 import traverseModule from '@babel/traverse';
 import generatorModule from '@babel/generator';
 import * as t from '@babel/types';
@@ -179,7 +180,7 @@ export function migrateSource(source: string, file: string, approvedHooks: Reado
   if (!diagnostics.some(item => item.severity === 'error') && !file.includes('vite.config')) {
     try { compile(code, { filename: file }); }
     catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = stripVTControlCharacters(error instanceof Error ? error.message : String(error));
       const code = message.match(/KANSO_[A-Z_]+/)?.[0] ?? 'COMPILER';
       const location = message.match(/>\s*(\d+)\s*\|[^\n]*\n\s*\| ( *)\^/);
       const mapped = location && generated?.map ? originalPositionFor(new TraceMap(generated.map as ConstructorParameters<typeof TraceMap>[0]), { line: Number(location[1]), column: location[2].length }) : undefined;
