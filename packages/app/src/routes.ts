@@ -1,7 +1,30 @@
-import type { Route } from './types.js';
+import type { Route, LoaderArgs, ActionResult } from './types.js';
+
+type Entries<R extends Route[], Prefix extends string = ''> = R[number] extends infer Item
+  ? Item extends Route
+    ? { id: Item['id']; path: `${Prefix}/${Item['path']}` } |
+      (Item extends { children: infer Children extends Route[] } ? Entries<Children, `${Prefix}/${Item['path']}`> : never)
+    : never
+  : never;
+export type RouteId<R extends Route[]> = Entries<R>['id'];
+type SegmentParam<S extends string> = S extends `:${infer P}` ? P : S extends `*${infer P}` ? P extends '' ? 'rest' : P : never;
+type PathParams<P extends string> = P extends `${infer Head}/${infer Tail}` ? SegmentParam<Head> | PathParams<Tail> : SegmentParam<P>;
+/** Params include every ancestor segment of the selected route. */
+export type RouteParams<R extends Route[], Id extends RouteId<R>> = string extends Id ? Record<string, string>
+  : [PathParams<Extract<Entries<R>, { id: Id }>['path']>] extends [never] ? Record<string, never>
+  : { [P in PathParams<Extract<Entries<R>, { id: Id }>['path']>]: string };
+export type LoaderData<F extends (...args: never[]) => unknown> = Exclude<Awaited<ReturnType<F>>, Response>;
+type ResultData<T> = T extends { data?: infer D } ? D : never;
+export type ActionData<F extends (...args: never[]) => unknown> = ResultData<Exclude<Awaited<ReturnType<F>>, Response>>;
+export type TypedRouteHandlers<R extends Route[], C = unknown> = {
+  [Id in RouteId<R>]?: {
+    loader?: (args: Omit<LoaderArgs<C>, 'params'> & { params: RouteParams<R, Id> }) => unknown;
+    action?: (args: Omit<LoaderArgs<C>, 'params'> & { params: RouteParams<R, Id> }) => ActionResult | Response | Promise<ActionResult | Response>;
+  }
+};
 
 /** Validate a stable route identity used by both loader transport and hydration. */
-export function defineRoutes<T extends Route[]>(routes: T): T {
+export function defineRoutes<const T extends Route[]>(routes: T): T {
   const ids = new Set<string>();
   const visit = (items: Route[]) => items.forEach(route => {
     if (!/^[a-zA-Z0-9_-]+$/.test(route.id) || ids.has(route.id)) throw new Error(`Invalid or duplicate route id: ${route.id}`);
@@ -13,6 +36,29 @@ export function defineRoutes<T extends Route[]>(routes: T): T {
   });
   visit(routes);
   return routes;
+}
+
+/** Build a link from a route identity without changing case, query order or values. */
+export function routeUrl<R extends Route[], const Id extends RouteId<NoInfer<R>>>(routes: R, id: Id, params: RouteParams<NoInfer<R>, NoInfer<Id>>, query?: URLSearchParams): string {
+  const find = (items: Route[], prefix: string[]): string[] | undefined => {
+    for (const route of items) {
+      const parts = [...prefix, ...route.path.split('/').filter(Boolean)];
+      if (route.id === id) return parts;
+      const child = find(route.children ?? [], parts);
+      if (child) return child;
+    }
+  };
+  const parts = find(routes, []);
+  if (!parts) throw new Error(`Unknown route: ${id}`);
+  const path = '/' + parts.map(part => {
+    if (!part.startsWith(':') && !part.startsWith('*')) return part;
+    const key = part.slice(1) || 'rest';
+    const value = (params as Record<string, string>)[key];
+    if (value === undefined) throw new Error(`Route ${id} requires parameter ${key}.`);
+    return part.startsWith('*') ? value.split('/').map(encodeURIComponent).join('/') : encodeURIComponent(value);
+  }).join('/');
+  const search = query?.toString();
+  return path + (search ? `?${search}` : '');
 }
 
 export interface RouteMatch { route: Route; ancestors: Route[]; params: Record<string, string> }

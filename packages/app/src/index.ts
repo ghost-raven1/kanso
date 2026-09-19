@@ -1,8 +1,10 @@
-export { defineRoutes, matchRoute } from './routes.js';
+export { defineRoutes, matchRoute, routeUrl } from './routes.js';
+export type { RouteId, RouteParams, LoaderData, ActionData } from './routes.js';
 export { App } from './router.js';
-export { useLoaderData, createNavigationLoader } from './data.js';
+export { useLoaderData, useRevalidator, createNavigationLoader } from './data.js';
+export type { Revalidator } from './data.js';
 export { Form, useForm } from './forms.js';
 export { readBootstrap } from './serialization.js';
 export { A as Link, useNavigate, useLocation, useParams } from '@solidjs/router';
-export type { Route, Bootstrap, LoaderArgs, RouteHandlers, ActionResult } from './types.js';
-export type { FormState } from './forms.js';
+export type { Route, Bootstrap, LoaderArgs, RouteHandlers, ActionResult, FormValues } from './types.js';
+export type { FormState, FormOptions, FormProps, FormPhase } from './forms.js';

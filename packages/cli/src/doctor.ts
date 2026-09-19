@@ -72,7 +72,7 @@ export async function doctor(
     problem(
       'VITE_VERSION',
       `Vite ${vite} is outside the tested major version.`,
-      'Use Vite 8 with Kanso 0.4.',
+      'Use Vite 8 with Kanso 0.5.',
     );
   const solid = new Set<string>();
   const visited = new Set<string>();

@@ -2,7 +2,7 @@
 
 React-shaped TSX. Solid reactivity. No React runtime.
 
-Рабочая реализация **0.4.0**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Это ограниченная первая версия, а не совместимый со всей экосистемой React runtime.
+Рабочая реализация **0.5.0**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Это ограниченная первая версия, а не совместимый со всей экосистемой React runtime.
 
 ```tsx
 import { useState, useEffect } from '@kanso/core';
@@ -48,6 +48,20 @@ export function Counter() {
 ```
 
 Hook и компонент создаются один раз на экземпляр. Возвращаемые значения остаются реактивными через границу модуля; ручные accessor-функции в исходном коде не нужны. Изменяемые аргументы тоже остаются живыми. Hook и его потребители должны собираться одной версией компилятора Kanso.
+
+## Веб-приложения в 0.5
+
+Типизированные `routeUrl`, `RouteParams`, `LoaderData` и серверный `defineRouteHandlers` связывают маршруты, адреса и handlers. Формы работают в SSR без JavaScript: action возвращает ошибки и явно выбранные значения, а `redirect()` поддерживает POST/Redirect/GET. После клиентской отправки `pending` охватывает обновление loaders; `useRevalidator()` позволяет повторить только загрузку, сохранив уже выполненную запись.
+
+[Руководство по данным и формам](docs/web-apps.md) · [исходники каталога](examples/catalog/README.md).
+
+```bash
+npm run build:catalog
+npm run preview:catalog
+# http://127.0.0.1:4175
+```
+
+Пример содержит URL-фильтры, карточку товара с SEO/JSON-LD, доступную форму заявки и подтверждение. Данные демонстрационные, заявки хранятся в памяти. Оплата и авторизация не входят в этот пример.
 
 ## Разработка в 0.4
 
@@ -201,9 +215,9 @@ npm run bench            # production Kanso/Solid/React/memo/React Compiler
 Linux-проверка всех браузеров, в том числе при проблеме запуска Firefox на macOS 27:
 
 ```bash
-docker build -f Dockerfile.test -t kanso-test:0.4.0 .
+docker build -f Dockerfile.test -t kanso-test:0.5.0 .
 mkdir -p output/linux
-docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.4.0
+docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.5.0
 ```
 
 Результаты и скриншоты сохраняются в `output/`. Исходные условия и результаты замеров — в [отчёте](docs/validation.md). CI описан в `.github/workflows/ci.yml`.

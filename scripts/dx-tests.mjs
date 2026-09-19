@@ -41,7 +41,7 @@ async function scenario(page, kind) {
 }
 let server;
 try {
-  for (const kind of ['profile', 'catalog', 'hooks']) {
+  for (const kind of process.env.KANSO_DX_TEMPLATES_ONLY ? [] : ['profile', 'catalog', 'hooks']) {
     const root = await mkdtemp(resolve(`output/dx/${kind}-`));
     await createProject(root, process.cwd()); await cp(`tests/fixtures/migration/${kind}/src`, join(root, 'src'), { recursive: true });
     const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
@@ -91,17 +91,51 @@ try {
         const html = await (await fetch('http://127.0.0.1:4181')).text();
         assert.match(html, /Hello from Kanso SSR/); assert.match(html, /<title[^>]*>My Kanso app<\/title>/);
         for (const name of browsers) {
+          console.log(`SSR starter: ${phase}, ${name}`);
           const browser = await engines[name].launch();
           try {
             const page = await browser.newPage(); const errors = []; const dataRequests = []; page.on('pageerror', error => errors.push(error.message)); page.on('request', req => { if (req.url().includes('/_kanso/data')) dataRequests.push(req.url()); });
             await page.addInitScript(() => {
-              const observer = new MutationObserver(() => { const input = document.querySelector('input'); if (input) { window.initialInput = input; window.initialId = input.id; input.value = 'before hydration'; observer.disconnect(); } });
+              const observer = new MutationObserver(() => { const input = document.querySelector('input[name=name]'); if (input) { window.initialInput = input; window.initialId = input.id; input.value = 'before hydration'; observer.disconnect(); } });
               observer.observe(document, { childList: true, subtree: true });
             });
             await page.route('**/src/main.tsx', async route => { await new Promise(resolve => setTimeout(resolve, 150)); await route.continue(); });
-            await page.goto('http://127.0.0.1:4181'); await page.getByRole('button').click();
-            assert.deepEqual(await page.evaluate(() => ({ same: window.initialInput === document.querySelector('input'), id: window.initialId === document.querySelector('input').id, value: document.querySelector('input').value })), { same: true, id: true, value: 'before hydration' });
-            assert.equal(await page.getByRole('button').textContent(), 'Count: 1'); assert.deepEqual(dataRequests, []); assert.deepEqual(errors, []);
+            await page.goto('http://127.0.0.1:4181'); await page.locator('#counter').click();
+            await page.waitForFunction(() => document.querySelector('#counter')?.textContent === 'Count: 1');
+            assert.deepEqual(await page.evaluate(() => ({ same: window.initialInput === document.querySelector('input[name=name]'), id: window.initialId === document.querySelector('input[name=name]').id, value: document.querySelector('input[name=name]').value })), { same: true, id: true, value: 'before hydration' });
+            assert.equal(await page.locator('#counter').textContent(), 'Count: 1'); assert.deepEqual(dataRequests, []); assert.deepEqual(errors, []);
+            let actions = 0;
+            page.on('request', request => { if (request.method() === 'POST') actions++; });
+            await page.getByLabel('Name', { exact: true }).fill('A');
+            await page.getByRole('button', { name: 'Save', exact: true }).click();
+            await page.getByText('Use at least two characters.', { exact: true }).waitFor();
+            assert.equal(await page.getByLabel('Name', { exact: true }).inputValue(), 'A');
+            let failRefresh = true;
+            await page.route('**/_kanso/data?*', route => failRefresh ? route.fulfill({ status: 503, body: 'Unavailable' }) : route.continue());
+            await page.getByLabel('Name', { exact: true }).fill('Saved once');
+            await page.getByRole('button', { name: 'Save', exact: true }).click();
+            await page.getByRole('button', { name: 'Retry refresh' }).waitFor();
+            assert.equal(actions, 2);
+            failRefresh = false;
+            await page.getByRole('button', { name: 'Retry refresh' }).click();
+            await page.waitForFunction(() => document.querySelector('output')?.textContent === 'Saved once');
+            assert.equal(actions, 2);
+            assert.deepEqual(errors, []);
+            const native = await browser.newContext({ javaScriptEnabled: false });
+            try {
+              const page = await native.newPage();
+              await page.goto('http://127.0.0.1:4181');
+              await page.getByLabel('Name', { exact: true }).fill('B');
+              const invalid = page.waitForResponse(response => response.request().method() === 'POST');
+              await page.getByRole('button', { name: 'Save', exact: true }).click();
+              assert.equal((await invalid).status(), 422);
+              await page.getByText('Use at least two characters.', { exact: true }).waitFor();
+              assert.equal(await page.getByLabel('Name', { exact: true }).inputValue(), 'B');
+              await page.getByLabel('Name', { exact: true }).fill('Native form');
+              await page.getByRole('button', { name: 'Save', exact: true }).click();
+              await page.waitForFunction(() => document.querySelector('output')?.textContent === 'Native form');
+              assert.equal(new URL(page.url()).pathname, '/');
+            } finally { await native.close(); }
             results.push({ template, phase, browser: name, passed: true });
           } finally { await browser.close(); }
         }

@@ -64,6 +64,7 @@ export function isPureExpression(path: NodePath<t.Node | null | undefined>, cont
     const node = child.node;
     if (t.isAssignmentExpression(node) || t.isUpdateExpression(node) || t.isAwaitExpression(node) || t.isNewExpression(node)) pure = false;
     if (!t.isCallExpression(node)) return;
+    if (t.isIdentifier(node.callee) && importedName(context, child.scope, node.callee.name) === 'routeUrl') return;
     if (t.isIdentifier(node.callee) && tracked(context, child.scope, node.callee.name, 'reactive') && node.arguments.length === 0) return;
     if (t.isMemberExpression(node.callee) && t.isIdentifier(node.callee.property) && !node.callee.computed &&
       (methods.has(node.callee.property.name) || t.isIdentifier(node.callee.object, { name: 'Math' }) && !child.scope.hasBinding('Math', true) && node.callee.property.name !== 'random')) return;

@@ -33,7 +33,7 @@ export function kansoBabelPlugin(_api?: unknown, options: { hmr?: 'preserve' | '
       if (!t.isCallExpression(init) || !t.isIdentifier(init.callee)) return;
       const name = importedName(context, path.scope, init.callee.name);
       if (name === 'createStore' && t.isArrayPattern(id) && t.isIdentifier(id.elements[0])) context.props.add(id.elements[0]);
-      if (['useLoaderData', 'useForm'].includes(name ?? '')) {
+      if (['useLoaderData', 'useForm', 'useParams', 'useLocation', 'useRevalidator'].includes(name ?? '')) {
         if (t.isIdentifier(id)) context.props.add(id);
         else if (t.isObjectPattern(id) && path.parentPath.isVariableDeclaration()) {
           const object = path.scope.generateUidIdentifier('data');

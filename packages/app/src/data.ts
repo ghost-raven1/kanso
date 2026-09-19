@@ -2,9 +2,17 @@ import { createContext, createResource, createSignal, onCleanup, useContext, typ
 import { isServer } from 'solid-js/web';
 import type { Bootstrap } from './types.js';
 
+export interface Revalidator {
+  readonly pending: boolean;
+  readonly error: Error | undefined;
+  /** Failure is exposed through error; retry never repeats an action. */
+  revalidate: () => Promise<void>;
+}
 export interface RouteData {
   snapshot: Accessor<Bootstrap | undefined>;
-  reload: () => void;
+  url: Accessor<string>;
+  revalidator: Revalidator;
+  reload: () => Promise<void>;
 }
 export const DataContext = createContext<RouteData>();
 export const RouteIdContext = createContext<string>();
@@ -34,20 +42,65 @@ export function createNavigationLoader(fetcher: typeof fetch = fetch) {
   };
 }
 
+/** Navigation owns suspense; revalidation keeps the last successful page available. */
 export function createRouteData(url: Accessor<string>, initial?: Bootstrap): RouteData {
   const navigation = createNavigationLoader();
-  const [revision, setRevision] = createSignal(0);
-  onCleanup(() => navigation.cancel());
-  const [snapshot] = createResource(
-    () => ({ url: url(), revision: revision() }),
-    async input => {
-      if (initial && input.revision === 0 && input.url === initial.url) return initial;
+  const refresh = createNavigationLoader();
+  const [pending, setPending] = createSignal(false);
+  const [error, setError] = createSignal<Error>();
+  let generation = 0;
+  let disposed = false;
+  let first = true;
+  let activeNavigation: Promise<Bootstrap> | undefined;
+  const [snapshot, { mutate }] = createResource(
+    () => {
+      const value = url();
+      generation++;
+      refresh.cancel();
+      setPending(false);
+      setError(undefined);
+      return value;
+    },
+    async value => {
+      if (first) {
+        first = false;
+        if (initial?.url === value) return initial;
+      }
       if (isServer) throw new Error('SSR loader data must be prepared before rendering.');
-      return navigation.load(input.url);
+      activeNavigation = navigation.load(value);
+      return activeNavigation;
     },
     { initialValue: initial, ssrLoadFrom: 'initial' },
   );
-  return { snapshot, reload: () => { initial = undefined; setRevision(value => value + 1); } };
+  onCleanup(() => { disposed = true; generation++; navigation.cancel(); refresh.cancel(); });
+  const revalidator: Revalidator = {
+    get pending() { return pending(); },
+    get error() { return error(); },
+    async revalidate() {
+      if (isServer || disposed) return;
+      const current = ++generation;
+      const target = url();
+      setPending(true);
+      setError(undefined);
+      try {
+        await activeNavigation;
+        if (disposed || current !== generation || target !== url()) return;
+        const next = await refresh.load(target);
+        if (!disposed && current === generation && target === url()) mutate(next);
+      } catch (caught) {
+        if (!disposed && current === generation) setError(caught instanceof Error ? caught : new Error(String(caught)));
+      } finally {
+        if (!disposed && current === generation) setPending(false);
+      }
+    },
+  };
+  return { snapshot, url, revalidator, reload: revalidator.revalidate };
+}
+
+export function useRevalidator(): Revalidator {
+  const context = useContext(DataContext);
+  if (!context) throw new Error('useRevalidator requires a Kanso route.');
+  return context.revalidator;
 }
 
 /** Reactive object view; keep the object or let the Kanso compiler lift property reads. */

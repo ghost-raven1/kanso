@@ -1,4 +1,4 @@
-import { createComponent, ErrorBoundary, Suspense, useContext, type Component } from 'solid-js';
+import { createComponent, ErrorBoundary, Show, Suspense, useContext, type Component } from 'solid-js';
 import { Router, useLocation, type RouteDefinition, type RouteSectionProps } from '@solidjs/router';
 import { Dynamic } from 'solid-js/web';
 import { createRouteData, DataContext, RouteIdContext } from './data.js';
@@ -19,7 +19,14 @@ const toRouterRoutes = (routes: Route[]): RouteDefinition[] => routes.map(route 
         get children() {
           return createComponent(Suspense, {
             get fallback() { return route.pending ? createComponent(route.pending, {}) : 'Loading…'; },
-            get children() { return createComponent(route.component, { get children() { return props.children; } }); },
+            get children() {
+              const data = useContext(DataContext);
+              return createComponent(Show, {
+                keyed: true,
+                get when() { return !data || Object.hasOwn(data.snapshot()?.data ?? {}, route.id); },
+                get children() { return createComponent(route.component, { get children() { return props.children; } }); },
+              });
+            },
           });
         },
       }); } });

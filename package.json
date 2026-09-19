@@ -1,6 +1,6 @@
 {
   "name": "kanso-workspace",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -19,11 +19,17 @@
     "preview": "node examples/lab/serve.mjs",
     "check:dependencies": "node scripts/check-dependencies.mjs",
     "bench": "node scripts/benchmark.mjs",
-    "check": "npm run build && npm run typecheck && npm test && npm run build:example && npm run check:dependencies",
+    "check": "npm run check:format && npm run build && npm run typecheck && npm test && npm run build:example && npm run build:catalog && npm run check:dependencies",
     "test:tooling": "node scripts/tooling-tests.mjs",
     "test:seo": "node scripts/seo-tests.mjs",
     "test:dx": "node scripts/dx-tests.mjs",
-    "test:hmr": "node scripts/hmr-tests.mjs"
+    "test:hmr": "node scripts/hmr-tests.mjs",
+    "build:catalog": "node scripts/build-example.mjs catalog",
+    "dev:catalog": "vite --config examples/catalog/vite.config.ts",
+    "preview:catalog": "cd examples/catalog && PORT=4175 node scripts/serve.mjs",
+    "format:examples": "node scripts/format-examples.mjs --write",
+    "check:format": "node scripts/format-examples.mjs",
+    "test:web": "node scripts/web-tests.mjs"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",
@@ -41,6 +47,7 @@
     "esbuild": "0.28.2",
     "jsdom": "^26.1.0",
     "playwright": "1.63.0",
+    "prettier": "3.9.8",
     "typescript": "^5.9.0",
     "vite": "8.3.0",
     "vite-plugin-solid": "2.11.14",

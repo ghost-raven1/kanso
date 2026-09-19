@@ -18,7 +18,7 @@ export async function createProject(
   if ((await readdir(root)).length)
     throw new Error('The destination must be empty.');
   const version = (name: string) =>
-    local ? `file:${resolve(local, 'packages', name)}` : '^0.4.0';
+    local ? `file:${resolve(local, 'packages', name)}` : '^0.5.0';
   const files: Record<string, string> = {
     'package.json': JSON.stringify(
       {

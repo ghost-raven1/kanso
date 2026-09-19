@@ -92,7 +92,7 @@ export async function migrate(options: MigrationOptions): Promise<MigrationRepor
     for (const section of ['dependencies', 'devDependencies']) {
       for (const name of ['react', 'react-dom', '@types/react', '@types/react-dom', '@vitejs/plugin-react', '@vitejs/plugin-react-swc']) delete pkg[section]?.[name];
     }
-    const version = (name: string) => options.local ? `file:${resolve(options.local, 'packages', name)}` : '^0.4.0';
+    const version = (name: string) => options.local ? `file:${resolve(options.local, 'packages', name)}` : '^0.5.0';
     pkg.dependencies = { ...pkg.dependencies, '@kanso/core': pkg.dependencies?.['@kanso/core'] ?? version('core') };
     pkg.devDependencies = { ...pkg.devDependencies, '@kanso/vite': pkg.devDependencies?.['@kanso/vite'] ?? version('vite') };
     changes.push({ file: 'package.json', before: originalPackage, after: JSON.stringify(pkg, null, 2) + '\n' });

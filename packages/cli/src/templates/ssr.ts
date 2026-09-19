@@ -3,21 +3,62 @@ export function ssrFiles(): Record<string, string> {
   return {
     'src/env.d.ts': `declare const __KANSO_BUILD_ID__: string;
 `,
-    'src/routes.tsx': `import { defineRoutes, useLoaderData } from '@kanso/app';
+    'src/routes.tsx': `import {
+  defineRoutes,
+  useLoaderData,
+  useForm,
+  Form,
+  useRevalidator,
+} from '@kanso/app';
 import { useId, useState } from '@kanso/core';
+
 function Home() {
-  const { message } = useLoaderData<{ message: string }>();
+  const { message, name } = useLoaderData<{ message: string; name: string }>();
+  const form = useForm<{ saved: string }, { name: string }>({ id: 'profile' });
+  const revalidator = useRevalidator();
   const [count, setCount] = useState(0);
   const id = useId();
+  const increment = () => setCount(value => value + 1);
+  const retry = () => {
+    void revalidator.revalidate();
+  };
+
   return (
     <main>
       <h1>{message}</h1>
-      <label htmlFor={id}>Name</label>
-      <input id={id} />
-      <button onClick={() => setCount(n => n + 1)}>Count: {count}</button>
+      <p>
+        Saved name: <output>{name}</output>
+      </p>
+      <Form state={form} aria-label="Profile">
+        <label htmlFor={id}>Name</label>
+        <input
+          id={id}
+          name="name"
+          required
+          value={form.values.name ?? name}
+          aria-invalid={!!form.errors.name}
+          aria-describedby={id + '-error'}
+        />
+        <p id={id + '-error'} role="alert">
+          {form.errors.name ?? form.error}
+        </p>
+        <button type="submit" disabled={form.pending}>
+          {form.pending ? 'Saving…' : 'Save'}
+        </button>
+      </Form>
+      {revalidator.error && (
+        <p role="alert">
+          Saved, but the page could not refresh.{' '}
+          <button onClick={retry}>Retry refresh</button>
+        </p>
+      )}
+      <button id="counter" onClick={increment}>
+        Count: {count}
+      </button>
     </main>
   );
 }
+
 export const routes = defineRoutes([
   { id: 'home', path: '/', component: Home, sitemap: true },
 ]);
@@ -30,10 +71,27 @@ export const seo = defineSeo({
   description: 'A server-rendered Kanso application.',
 });
 `,
-    'src/handlers.server.ts': `import type { RouteHandlers } from '@kanso/app';
-export const handlers: Record<string, RouteHandlers> = {
-  home: { loader: () => ({ message: 'Hello from Kanso SSR' }) },
-};
+    'src/handlers.server.ts': `import { defineRouteHandlers } from '@kanso/app/server';
+import { routes } from './routes';
+
+// Demonstration only: replace with a persistent store for your application.
+let savedName = 'Visitor';
+export const handlers = defineRouteHandlers(routes, {
+  home: {
+    loader: () => ({ message: 'Hello from Kanso SSR', name: savedName }),
+    action: async ({ request }) => {
+      const fields = await request.formData();
+      const name = String(fields.get('name') ?? '').trim();
+      if (name.length < 2)
+        return {
+          errors: { name: 'Use at least two characters.' },
+          values: { name },
+        };
+      savedName = name;
+      return { data: { saved: name }, values: { name } };
+    },
+  },
+});
 `,
     'src/server.ts': `import { createRequestHandler } from '@kanso/app/server';
 import { routes } from './routes';
@@ -66,7 +124,9 @@ const ssr: Plugin = {
           const url = new URL(request.url ?? '/', 'http://localhost');
           const handler = module.createHandler({ entry: '/src/main.tsx' });
           // Vite serves modules and assets before this fallback middleware.
-          const origin = 'http://localhost:' + server.config.server.port;
+          const origin =
+            'http://' +
+            (request.headers.host ?? '127.0.0.1:' + server.config.server.port);
           await nodeHandler(async incoming => {
             const result = await handler(incoming);
             if (
@@ -135,7 +195,7 @@ if (manifest.buildId !== buildId)
 const port = Number(process.env.PORT ?? 4173);
 const handle = nodeHandler(
   createHandler({ entry: manifest.entries[0], styles: manifest.styles }),
-  'http://localhost:' + port,
+  'http://127.0.0.1:' + port,
 );
 const types = {
   '.js': 'text/javascript',
@@ -173,7 +233,7 @@ const server = createServer(async (request, response) => {
   }
 });
 server.listen(port, '127.0.0.1', () =>
-  console.log('Kanso SSR: http://localhost:' + port),
+  console.log('Kanso SSR: http://127.0.0.1:' + port),
 );
 process.on('SIGTERM', () => server.close());
 process.on('SIGINT', () => server.close());
@@ -181,7 +241,7 @@ process.on('SIGINT', () => server.close());
     '.env.example': 'VITE_SITE_URL=https://example.com\n',
     'README.md': `# Kanso SSR
 
-Run npm install, then npm run dev. Development and production return server HTML.
+Run npm install, then npm run dev. The profile form also works without JavaScript. Only explicitly returned values are reflected after validation; the demo store resets on restart. Development and production return server HTML.
 
 Set VITE_SITE_URL before building for your public origin. Run npm run build && npm run preview for production. Keep handlers in .server.ts files.
 `,
