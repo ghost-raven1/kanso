@@ -121,6 +121,21 @@ try {
       await page.waitForFunction(() => window.kansoReady);
       assert.equal(await page.title(), 'SEO example: second · Kanso');
       assert.equal(await page.locator('link[rel="canonical"]').count(), 1);
+      await page.getByRole('link', { name: '05 · Stores & services' }).click();
+      await page.waitForFunction(() => document.querySelector('#service-workspace')?.textContent === 'Workspace: alpha');
+      await page.locator('#service-count').click();
+      await page.locator('#service-theme').click();
+      assert.equal(await page.locator('#service-count').textContent(), 'Count: 1');
+      assert.equal(await page.locator('#service-theme').textContent(), 'Theme: dark');
+      await page.getByRole('link', { name: 'Beta', exact: true }).click();
+      await page.waitForFunction(() => document.querySelector('#service-workspace')?.textContent === 'Workspace: beta');
+      assert.equal(await page.locator('#service-count').textContent(), 'Count: 0');
+      await page.goBack();
+      await page.waitForFunction(() => document.querySelector('#service-workspace')?.textContent === 'Workspace: alpha');
+      await page.locator('#service-count').click();
+      await page.getByRole('button', { name: 'Restore server data' }).click();
+      await page.waitForFunction(() => document.querySelector('#service-count')?.textContent === 'Count: 0');
+      await page.screenshot({ path: `output/browser/${name}-services.png`, fullPage: true });
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(origin);
       await page.waitForFunction(() => window.kansoReady);
@@ -133,7 +148,7 @@ try {
       assert.equal(await offline.locator('#count').textContent(), '0');
       assert.equal(await offline.locator('[data-row]').count(), 3);
       await offline.close();
-      results.push({ browser: name, version: browser.version(), passed: true, checks: ['SSR DOM identity', 'pre-hydration input', 'no duplicate loader', 'fine-grained updates', 'key identity and focus', 'effect disposal', 'forms and revalidation', 'lazy SSR', 'mobile layout', 'failed JavaScript retains HTML', 'SSR metadata', 'head hydration identity', 'reactive SEO', 'JSON-LD cleanup', 'route parameters and back/forward SEO', 'stale SEO response rejected'] });
+      results.push({ browser: name, version: browser.version(), passed: true, checks: ['SSR DOM identity', 'pre-hydration input', 'no duplicate loader', 'fine-grained updates', 'key identity and focus', 'effect disposal', 'forms and revalidation', 'lazy SSR', 'mobile layout', 'failed JavaScript retains HTML', 'SSR metadata', 'head hydration identity', 'reactive SEO', 'JSON-LD cleanup', 'route parameters and back/forward SEO', 'stale SEO response rejected', 'application service scopes'] });
       console.log(`${name}: all browser scenarios passed`);
     } finally { await browser.close(); }
   }

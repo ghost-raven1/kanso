@@ -8,6 +8,7 @@ import { FORM_ID, FORM_ROUTE } from './forms.js';
 import type { Bootstrap, RequestHandlerOptions, Route, RouteHandlers } from './types.js';
 import { createMicrofrontendSession, REMOTE_VERSIONS, remoteSnapshot, type MicrofrontendSession, type RemotePins } from './microfrontends.js';
 import { defineRoutes } from './routes.js';
+import { createServiceScope, type ServiceScope } from '@kanso/core';
 
 export type { RequestHandlerOptions, LoaderArgs, RouteHandlers, ActionResult, FormValues } from './types.js';
 export { defineRouteHandlers, redirect } from './handlers.js';
@@ -55,6 +56,7 @@ export function createRequestHandler<C = unknown, const R extends Route[] = Rout
     const timer = setTimeout(() => controller.abort(new Error('Request timed out')), options.timeoutMs ?? 10000);
     let removeAbort = () => {};
     let session: MicrofrontendSession | undefined;
+    let services: ServiceScope | undefined;
     const aborted = new Promise<never>((_resolve, reject) => {
       const fail = () => reject(signal.reason);
       if (signal.aborted) fail(); else signal.addEventListener('abort', fail, { once: true });
@@ -112,9 +114,10 @@ export function createRequestHandler<C = unknown, const R extends Route[] = Rout
         const match = matchRoute(requestOptions.routes, url.pathname);
         if (!match) return new Response('Not found', { status: 404 });
         const active = [...match.ancestors, match.route];
-        const execute = async (): Promise<Response> => {
+        const renderRequest = async (): Promise<Response> => {
           const context = await options.context?.(request) as C;
           if (signal.aborted) throw signal.reason;
+          services = createServiceScope({ signal });
           let actionState: Bootstrap['action'];
           let status = 200;
           if (post) {
@@ -139,7 +142,7 @@ export function createRequestHandler<C = unknown, const R extends Route[] = Rout
             // Both transports expose the page URL, including its params and query.
             const actionRequest = new Request(url, { method: 'POST', headers: request.headers, body: request.body, signal, ...{ duplex: 'half' } });
             let result;
-            try { result = await action({ request: actionRequest, params: match.params, context, signal }); }
+            try { result = await action({ request: actionRequest, params: match.params, context, signal, services }); }
             catch (error) { if (error instanceof Response && error.status < 400) cache.clear(); throw error; }
             if (signal.aborted) throw signal.reason;
             if (result instanceof Response) { if (result.status < 400) cache.clear(); return result; }
@@ -150,13 +153,15 @@ export function createRequestHandler<C = unknown, const R extends Route[] = Rout
           }
           const routeRequest = new Request(url, { headers: request.headers, signal });
           const data = Object.fromEntries(await Promise.all(active.map(async route => {
-            const result = await ((handlers?.[route.id] ?? session?.handlers[route.id]) as RouteHandlers<C> | undefined)?.loader?.({ request: routeRequest, params: match.params, context, signal }) ?? {};
+            const result = await ((handlers?.[route.id] ?? session?.handlers[route.id]) as RouteHandlers<C> | undefined)?.loader?.({ request: routeRequest, params: match.params, context, signal, services: services! }) ?? {};
             if (result instanceof Response) throw result;
             return [route.id, result];
           })));
           if (signal.aborted) throw signal.reason;
           const bootstrap: Bootstrap = remoteSnapshot({ version: 1, buildId: options.buildId, url: url.pathname + url.search, data, ...(actionState ? { action: actionState } : {}) }, session);
           if (dataRequest) {
+            const snapshots = services.snapshot();
+            if (Object.keys(snapshots).length) bootstrap.services = snapshots;
             if (options.seo) {
               const head = createHeadRegistry(options.seo, () => bootstrap.url);
               head.setSource(() => routeSeoLevels(requestOptions.routes, bootstrap, bootstrap.url, head.config));
@@ -164,7 +169,11 @@ export function createRequestHandler<C = unknown, const R extends Route[] = Rout
             }
             return Response.json(bootstrap, { headers: { 'Cache-Control': 'no-store' } });
           }
-          return renderPage(requestOptions, bootstrap, status);
+          return renderPage(requestOptions, bootstrap, status, services);
+        };
+        // Dispose before a successful response can enter the shared HTML cache.
+        const execute = async () => {
+          try { return await renderRequest(); } finally { services?.dispose(); }
         };
         const policy = match.route.cache;
         // A widget can discover another release during rendering. Cache only after all registered identities are pinned.
@@ -180,10 +189,12 @@ export function createRequestHandler<C = unknown, const R extends Route[] = Rout
       return new Response(request.method === 'HEAD' ? null : signal.aborted ? 'Request timed out or cancelled' : error instanceof URIError ? 'Invalid URL' : 'Server rendering failed', {
         status: signal.aborted ? 504 : error instanceof URIError ? 400 : 500, headers: { 'Cache-Control': 'no-store' },
       });
-    } finally { clearTimeout(timer); removeAbort(); session?.dispose(); }
+    } finally { clearTimeout(timer); removeAbort(); try { session?.dispose(); } finally { services?.dispose(); } }
   };
   return async request => {
-    const response = await dispatch(request);
+    const response = await dispatch(request).catch(() => new Response(request.method === 'HEAD' ? null : 'Request cleanup failed', {
+      status: 500, headers: { 'Cache-Control': 'no-store' },
+    }));
     if (options.seo?.indexable !== false && request.method !== 'POST') return response;
     const headers = new Headers(response.headers);
     if (request.method === 'POST') headers.set('Cache-Control', 'no-store');

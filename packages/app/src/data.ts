@@ -2,6 +2,7 @@ import { createContext, createResource, createSignal, onCleanup, useContext, typ
 import { isServer } from 'solid-js/web';
 import type { Bootstrap } from './types.js';
 import { remoteHeaders, useMicrofrontendSession, type MicrofrontendSession } from './microfrontends.js';
+import type { ServiceScope } from '@kanso/core';
 
 export interface Revalidator {
   readonly pending: boolean;
@@ -45,13 +46,14 @@ export function createNavigationLoader(fetcher: typeof fetch = fetch, session?: 
 }
 
 /** Navigation owns suspense; revalidation keeps the last successful page available. */
-export function createRouteData(url: Accessor<string>, initial?: Bootstrap, prepare?: (url: string) => Promise<void>): RouteData {
+export function createRouteData(url: Accessor<string>, initial?: Bootstrap, prepare?: (url: string) => Promise<void>, services?: ServiceScope): RouteData {
   const session = useMicrofrontendSession();
   const navigation = createNavigationLoader(fetch, session);
   const refresh = createNavigationLoader(fetch, session);
   const [pending, setPending] = createSignal(false);
   const [error, setError] = createSignal<Error>();
   let generation = 0;
+  let navigationVersion = 0;
   let disposed = false;
   let first = true;
   let activeNavigation: Promise<Bootstrap> | undefined;
@@ -59,6 +61,7 @@ export function createRouteData(url: Accessor<string>, initial?: Bootstrap, prep
     () => {
       const value = url();
       generation++;
+      navigationVersion++;
       navigation.cancel();
       refresh.cancel();
       setPending(false);
@@ -72,7 +75,16 @@ export function createRouteData(url: Accessor<string>, initial?: Bootstrap, prep
       }
       if (isServer) throw new Error('SSR loader data must be prepared before rendering.');
       const current = generation;
-      activeNavigation = (async () => { await prepare?.(value); if (disposed || current !== generation) throw new DOMException('Stale navigation', 'AbortError'); return navigation.load(value); })();
+      const intent = navigationVersion;
+      activeNavigation = (async () => {
+        await prepare?.(value);
+        if (disposed || current !== generation) throw new DOMException('Stale navigation', 'AbortError');
+        const next = await navigation.load(value);
+        // During a Solid transition url() outside its owner still exposes the committed URL.
+        if (disposed || intent !== navigationVersion) throw new DOMException('Stale navigation', 'AbortError');
+        if (next.services) services?.restore(next.services);
+        return next;
+      })();
       return activeNavigation;
     },
     { initialValue: initial, ssrLoadFrom: 'initial' },
@@ -91,7 +103,10 @@ export function createRouteData(url: Accessor<string>, initial?: Bootstrap, prep
         await activeNavigation;
         if (disposed || current !== generation || target !== url()) return;
         const next = await refresh.load(target);
-        if (!disposed && current === generation && target === url()) mutate(next);
+        if (!disposed && current === generation && target === url()) {
+          if (next.services) services?.restore(next.services);
+          mutate(next);
+        }
       } catch (caught) {
         if (!disposed && current === generation) setError(caught instanceof Error ? caught : new Error(String(caught)));
       } finally {

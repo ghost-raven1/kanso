@@ -11,3 +11,5 @@ import type { JSX } from 'solid-js';
 export function Fragment(props: { children?: JSX.Element }): JSX.Element { return props.children; }
 
 export { createContext, useContext, type Context } from './context.js';
+export { useStore, type ExternalStore, type StoreSelector, type StoreEquality } from './external-store.js';
+export { defineService, createServiceScope, ServiceProvider, useService, type ServiceScope, type ServiceDefinition, type ServiceFactoryContext, type ServiceSnapshots } from './services.js';

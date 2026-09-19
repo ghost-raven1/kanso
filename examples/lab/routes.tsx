@@ -4,6 +4,7 @@ import Home from './pages/Home';
 import Data from './pages/Data';
 import SeoPage, { SeoExample } from './pages/Seo';
 import { defineRouteSeo } from '@kanso/app/seo';
+import Services from './pages/Services';
 
 function Layout({ children }: PropsWithChildren) {
   return (
@@ -12,7 +13,7 @@ function Layout({ children }: PropsWithChildren) {
         <Link href="/" class="brand">
           簡素 <span>kanso</span>
         </Link>
-        <span className="version">FRAMEWORK LAB / 0.6</span>
+        <span className="version">FRAMEWORK LAB / 0.7</span>
         <a
           href="https://github.com/solidjs/solid"
           target="_blank"
@@ -42,6 +43,7 @@ function Layout({ children }: PropsWithChildren) {
           <Link href="/data">02 · Data & forms</Link>
           <Link href="/lazy">03 · Lazy route</Link>
           <Link href="/seo">04 · SEO</Link>
+          <Link href="/services/alpha">05 · Stores & services</Link>
         </nav>
         <section className="workspace">{children}</section>
         <footer>
@@ -59,6 +61,12 @@ export const routes = defineRoutes([
     path: '/',
     component: Layout,
     children: [
+      {
+        id: 'services',
+        path: '/services/:name',
+        component: Services,
+        seo: { title: 'Stores & services' },
+      },
       { id: 'home', path: '/', component: Home, sitemap: true },
       {
         id: 'data',

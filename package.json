@@ -1,6 +1,6 @@
 {
   "name": "kanso-workspace",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:browser": "node scripts/browser-tests.mjs",
-    "test:compatibility": "node scripts/compatibility-tests.mjs",
+    "test:compatibility": "node scripts/compatibility-tests.mjs && node scripts/services-tests.mjs",
+    "test:services": "node scripts/services-tests.mjs",
     "dev": "vite --config examples/lab/vite.config.ts",
     "build:example": "node scripts/build-example.mjs",
     "preview": "node examples/lab/serve.mjs",

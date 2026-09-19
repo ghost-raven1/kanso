@@ -22,6 +22,12 @@ onClick={() => {
 
 `useReducer` поддерживает reducer, initial value и третий аргумент initializer. `useRef` возвращает стабильный нереактивный объект. Object ref заполняется при создании DOM и очищается при disposal.
 
+## Внешние stores и сервисы
+
+`useStore(store, selector?, equals?)` подписывается на внешний `getState` / `subscribe` контракт. Чтения результата реактивны; равенство по умолчанию — Object.is. Подписка принадлежит компоненту и очищается при его удалении, смене store или HMR. На сервере подписок нет; `getServerSnapshot` используется также в первом проходе гидратации.
+
+`defineService` задаёт синхронную фабрику и стабильную идентичность. `useService` получает экземпляр ближайшего ServiceProvider; App предоставляет scope автоматически. Loaders/actions получают `services`. Каждый SSR-запрос создаёт свои экземпляры и отменяет/очищает их после завершения. Публичные JSON-снимки явно задаются парой snapshot/restore и переносятся через bootstrap; навигация обновляет существующий экземпляр только из принятого ответа. Владение внешним scope, зависимости, HMR и ограничения мигратора описаны в [руководстве](services.md).
+
 ## Эффекты
 
 | Форма | Контракт |
@@ -74,7 +80,7 @@ Async/generator hooks, условные вызовы, ранние returns, vari
 
 Handlers располагаются в server entry / `.server.ts`. Такие модули и `@kanso/app/server`/`node` запрещены в клиентском графе. В транспорт попадают только результаты, которые можно представить JSON; произвольные функции, Map, циклы и BigInt не сериализуются.
 
-На каждый запрос создаются context, loader snapshot и владельцы Solid. Loaders получают Request, params, context и AbortSignal. Сервер ждёт данные, рендерит HTML буферизованно и передаёт snapshot с build ID. Loader может вернуть/бросить Response для HTTP-ошибки или redirect.
+На каждый запрос создаются context, loader snapshot и владельцы Solid. Loaders получают Request, params, context, services и AbortSignal. Сервер ждёт данные, рендерит HTML буферизованно и передаёт snapshot с build ID. Loader может вернуть/бросить Response для HTTP-ошибки или redirect.
 
 Гидратация использует существующий DOM и исходный snapshot. Введённые до JavaScript значения input/textarea восстанавливаются и передаются установленным обработчикам. Это не полноценный replay всех ранних событий. Ошибка загрузки entry сохраняет SSR; ошибка самого render/hydrate не маскируется как успешная гидратация.
 

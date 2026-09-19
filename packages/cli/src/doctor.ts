@@ -113,7 +113,7 @@ export async function doctor(
     problem(
       'VITE_VERSION',
       `Vite ${vite} is outside the tested major version.`,
-      'Use Vite 8 with Kanso 0.6.',
+      'Use Vite 8 with Kanso 0.7.',
     );
   const solid = new Set<string>();
   const shared = new Map<string, Set<string>>();

@@ -87,6 +87,21 @@ try {
       await page.getByRole('button', { name: 'Theme' }).click();
       await updateFile(page, join(root, 'src/App.tsx'), contextSource.replace('Before:', 'After:'));
       await page.waitForFunction(() => document.querySelector('[data-theme]')?.textContent === 'After: dark');
+      await writeFile(join(root, 'src/services.ts'), `import{defineService,createServiceScope}from'@kanso/core';
+        export const scope=createServiceScope();
+        export const Settings=defineService({id:'settings',create:()=>{let count=0;const listeners=new Set();return{
+          getState:()=>count,subscribe(fn){listeners.add(fn);window.serviceSubscriptions=listeners.size;return()=>{listeners.delete(fn);window.serviceSubscriptions=listeners.size}},
+          increment(){count++;for(const fn of listeners)fn()}}}});`);
+      const serviceSource = `import{ServiceProvider,useService,useStore,useState}from'@kanso/core';import{scope,Settings}from'./services';
+        function Counter(){const store=useService(Settings);const count=useStore(store);return <button data-service onClick={()=>store.increment()}>Before: {count}</button>}
+        export function App(){const[visible,setVisible]=useState(true);return <ServiceProvider scope={scope}><button data-service-toggle onClick={()=>setVisible(value=>!value)}>Toggle</button>{visible && <Counter/>}</ServiceProvider>}`;
+      await updateFile(page, join(root, 'src/App.tsx'), serviceSource);
+      await page.locator('[data-service]').click();
+      await updateFile(page, join(root, 'src/App.tsx'), serviceSource.replace('Before:', 'After:'));
+      await page.waitForFunction(() => document.querySelector('[data-service]')?.textContent === 'After: 1');
+      assert.equal(await page.evaluate(() => window.serviceSubscriptions), 1);
+      await page.locator('[data-service-toggle]').click();
+      await page.waitForFunction(() => window.serviceSubscriptions === 0);
       const keyedSource = `import { useState } from '@kanso/core';
         function Row({ id }: { id: string }) {
           const [count, setCount] = useState(0);
@@ -106,7 +121,7 @@ try {
       await updateFile(page, join(root, 'src/App.tsx'), keyedSource.replace('{id}:', '{id} updated:'));
       await page.waitForFunction(() => document.querySelector('[data-key]')?.textContent === 'B updated: 1');
       assert.deepEqual(await page.locator('[data-key]').allTextContents(), ['B updated: 1', 'A updated: 2']);
-      results.push({ browser: name, context: true, keyed: true, jsx: true, hooks: true, reducer: true, refs: true, ids: true, isolation: true, cleanup: true, reset: true, errorRecovery: true, unmount: true });
+      results.push({ browser: name, services: true, context: true, keyed: true, jsx: true, hooks: true, reducer: true, refs: true, ids: true, isolation: true, cleanup: true, reset: true, errorRecovery: true, unmount: true });
       console.log(`Stateful HMR passed: ${name}`);
     } catch (error) {
       console.error('HMR failure:', name, { messages: messages.slice(-25), events: server.logs().split('\n').filter(line => /hmr|reload/.test(line)), server: server.logs().slice(-1500), html: (await page.content()).slice(-4000) });

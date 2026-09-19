@@ -8,8 +8,9 @@ import { routeSeoLevels } from './seo/routes.js';
 import type { SeoConfig } from './seo/types.js';
 import { createMicrofrontendSession, remoteMountMatches, remoteMountPath, type MicrofrontendDefinition, type MicrofrontendSession } from './microfrontends.js';
 import { isServer } from 'solid-js/web';
+import { createServiceScope, ServiceProvider, type ServiceScope } from '@kanso/core';
 
-export interface AppProps { routes: Route[]; url?: string; bootstrap?: Bootstrap; seo?: SeoConfig; microfrontends?: readonly MicrofrontendDefinition[]; microfrontendSession?: MicrofrontendSession; /** @internal */ head?: HeadRegistry }
+export interface AppProps { routes: Route[]; url?: string; bootstrap?: Bootstrap; seo?: SeoConfig; services?: ServiceScope; microfrontends?: readonly MicrofrontendDefinition[]; microfrontendSession?: MicrofrontendSession; /** @internal */ head?: HeadRegistry }
 
 const toRouterRoutes = (routes: Route[], cache: WeakMap<Route, RouteDefinition>): RouteDefinition[] => routes.map(route => {
   const cached = cache.get(route);
@@ -45,6 +46,9 @@ const toRouterRoutes = (routes: Route[], cache: WeakMap<Route, RouteDefinition>)
 
 /** A single data context belongs to this app root (and therefore this SSR request). */
 export function App(props: AppProps) {
+  const services = props.services ?? createServiceScope({ snapshots: props.bootstrap?.services });
+  if (!props.services) onCleanup(() => services.dispose());
+  else if (!isServer && props.bootstrap?.services) services.restore(props.bootstrap.services);
   const session = props.microfrontendSession ?? createMicrofrontendSession(props.microfrontends, { pins: props.bootstrap?.remotes });
   if (session && !props.microfrontendSession) onCleanup(() => session.dispose());
   const [routes, setRoutes] = createSignal(session?.preparedRoutes ?? props.routes);
@@ -70,7 +74,7 @@ export function App(props: AppProps) {
       const resume = () => { if (current === intent) event.retry(true); };
       void prepare!(target.pathname + target.search).then(resume, resume);
     });
-    const data = createRouteData(() => location.pathname + location.search, props.bootstrap, prepare);
+    const data = createRouteData(() => location.pathname + location.search, props.bootstrap, prepare, services);
     const Content = () => {
       const head = useContext(HeadContext);
       if (head) head.setSource(() => routeSeoLevels(routes(), data.snapshot(), location.pathname + location.search, head.config));
@@ -79,9 +83,10 @@ export function App(props: AppProps) {
     return props.seo ? createComponent(SeoProvider, { config: props.seo, registry: props.head, get children() { return createComponent(Content, {}); } }) : createComponent(Content, {});
   };
   const render = () => createComponent(Router, { url: props.url, root: Root, get children() { return toRouterRoutes(routes(), routeCache); } });
-  if (!session) return render();
+  const scoped = () => createComponent(ServiceProvider, { scope: services, get children() { return render(); } });
+  if (!session) return scoped();
   const initialUrl = props.url ?? props.bootstrap?.url ?? (isServer ? '/' : window.location.pathname + window.location.search);
   const prepared = !!session.preparedRoutes;
   const [ready] = createResource(async () => { if (!prepared) await prepare?.(initialUrl); return true; }, { initialValue: prepared ? true : undefined, ssrLoadFrom: prepared ? 'initial' : 'server' });
-  return session.wrap(() => createComponent(Show, { keyed: true, get when() { return ready(); }, children: (_ready: {}) => render() }));
+  return session.wrap(() => createComponent(Show, { keyed: true, get when() { return ready(); }, children: (_ready: {}) => scoped() }));
 }

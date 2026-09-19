@@ -1,10 +1,19 @@
 import type { RouteHandlers } from '@kanso/app';
+import { settings } from './services/settings';
 
 let name = 'Ready from the server';
 // Marker proves that server implementation never enters a browser chunk.
 const serverOnlyMarker = 'KANSO_SERVER_IMPLEMENTATION_ONLY';
 
 export const handlers: Record<string, RouteHandlers> = {
+  services: {
+    loader: ({ services, params }) => {
+      services
+        .get(settings)
+        .setState({ workspace: params.name, theme: 'light', count: 0 });
+      return {};
+    },
+  },
   'seo-example': {
     loader: ({ params }) => ({
       name: `SEO example: ${params.slug}`,

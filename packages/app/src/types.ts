@@ -1,4 +1,5 @@
 import type { Component, JSX } from 'solid-js';
+import type { ServiceScope, ServiceSnapshots } from '@kanso/core';
 import type { TypedRouteHandlers } from './routes.js';
 import type { MicrofrontendDefinition, MicrofrontendSession, RemotePins, RemoteSource } from './microfrontends.js';
 import type { SeoConfig, SeoMetadata, SeoResolver, SeoSnapshot, SitemapEntry, SitemapOptions, RobotsOptions } from './seo/types.js';
@@ -19,7 +20,7 @@ export interface Route {
   cache?: { public: true; ttlMs: number; vary?: string[] };
 }
 export interface LoaderArgs<C = unknown> {
-  request: Request; params: Record<string, string>; context: C; signal: AbortSignal;
+  request: Request; params: Record<string, string>; context: C; signal: AbortSignal; services: ServiceScope;
 }
 export type FormValues = Record<string, string | string[]>;
 export interface ActionResult<T = unknown, V extends FormValues = FormValues> {
@@ -37,6 +38,7 @@ export interface Bootstrap {
   version: 1; buildId: string; url: string; data: Record<string, unknown>; seo?: SeoSnapshot;
   action?: { routeId: string; formId: string; result: ActionResult };
   remotes?: RemotePins;
+  services?: ServiceSnapshots;
 }
 export interface RequestHandlerOptions<C = unknown, R extends Route[] = Route[]> {
   routes: R;

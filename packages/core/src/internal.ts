@@ -6,3 +6,4 @@ export { liveArgument as __liveArgument, hookArgument as __hookArgument, hookRes
 
 export { contextValue as __context } from './context.js';
 export { defaultValue as __default, objectRest as __objectRest } from './patterns.js';
+export { storeValue as __store } from './external-store.js';

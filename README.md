@@ -2,7 +2,7 @@
 
 React-shaped TSX. Solid reactivity. No React runtime.
 
-Рабочая реализация **0.6.1**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO, микрофронты и необязательные инструменты Web/Service Workers. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Совместимость с React-зависимыми библиотеками не предоставляется.
+Рабочая реализация **0.7.0**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO, микрофронты, внешние stores и сервисы на приложение/SSR-запрос, необязательные инструменты Web/Service Workers. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Совместимость с React-зависимыми библиотеками не предоставляется.
 
 ```tsx
 import { useState, useEffect } from '@kanso/core';
@@ -48,6 +48,10 @@ export function Counter() {
 ```
 
 Hook и компонент создаются один раз на экземпляр. Возвращаемые значения остаются реактивными через границу модуля; ручные accessor-функции в исходном коде не нужны. Изменяемые аргументы тоже остаются живыми. Hook и его потребители должны собираться одной версией компилятора Kanso.
+
+## Stores и сервисы
+
+`useStore(store, selector, equals?)` обновляет только зависимые значения. `defineService` и `useService` дают общий экземпляр внутри приложения и отдельный экземпляр на каждый SSR-запрос. App передаёт явные публичные снимки через гидратацию и навигацию. [API и пример](docs/services.md).
 
 ## Микрофронты в 0.6
 
@@ -154,7 +158,7 @@ npm run preview
 
 | Пакет | Ответственность |
 | --- | --- |
-| `@kanso/core` | Hooks, JSX-типы, store, Context, lazy, Suspense, ErrorBoundary; DOM lifecycle |
+| `@kanso/core` | Hooks, JSX-типы, stores и сервисы, Context, lazy, Suspense, ErrorBoundary; DOM lifecycle |
 | `@kanso/compiler` | AST-преобразования привязок, props, производных значений, списков и событий; затем Solid JSX |
 | `@kanso/vite` | Компиляция `.tsx`/`.jsx`/`.ts`, HMR, source maps, манифест и граница серверных модулей |
 | `@kanso/app` | Solid Router, загрузка данных, actions, формы, буферизованный SSR, кеш и Node adapter |
@@ -247,6 +251,7 @@ export const handle = createRequestHandler({
 npm run check             # пакеты, TypeScript, Vitest, production SSR, dependency audit
 npx playwright install chromium firefox webkit
 npm run test:browser      # SSR/hydration, ввод, DOM identity, формы, список, lazy, mobile
+npm run test:services     # packed Zustand vanilla, SSR, селекторы и cleanup
 npm run test:compatibility # key reset, raw HTML, SSR/hydration и cleanup
 npm run test:seo          # production HTML, sitemap и exit codes диагностики
 npm run test:tooling      # настоящая миграция, npm install, build, HMR, server-only boundary
@@ -266,9 +271,9 @@ npm run bench            # production Kanso/Solid/React/memo/React Compiler
 Linux-проверка всех браузеров, в том числе при проблеме запуска Firefox на macOS 27:
 
 ```bash
-docker build -f Dockerfile.test -t kanso-test:0.6.1 .
+docker build -f Dockerfile.test -t kanso-test:0.7.0 .
 mkdir -p output/linux
-docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.6.1
+docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.7.0
 ```
 
 Результаты и скриншоты сохраняются в `output/`. Исходные условия и результаты замеров — в [отчёте](docs/validation.md). CI описан в `.github/workflows/ci.yml`.

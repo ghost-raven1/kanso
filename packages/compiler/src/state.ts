@@ -2,7 +2,7 @@ import type { NodePath } from '@babel/traverse';
 import * as t from '@babel/types';
 import { helper, replaceReads, hasReactive, importedName, isSetup, isPureExpression, type TransformContext } from './context.js';
 
-const names: Record<string, string> = { useState: '__state', useReducer: '__reducer', useEffect: '__effect', useMemo: '__memo', useCallback: '__callback', useContext: '__context' };
+const names: Record<string, string> = { useState: '__state', useReducer: '__reducer', useEffect: '__effect', useMemo: '__memo', useCallback: '__callback', useContext: '__context', useStore: '__store' };
 
 export function transformHooks(context: TransformContext): void {
   context.program.traverse({
@@ -10,7 +10,7 @@ export function transformHooks(context: TransformContext): void {
       if (!t.isIdentifier(path.node.callee)) return;
       const local = path.node.callee.name;
       const name = importedName(context, path.scope, local);
-      if (!name || !names[name] && !['useRef', 'useId'].includes(name)) return;
+      if (!name || !names[name] && !['useRef', 'useId', 'useService'].includes(name)) return;
       const binding = path.scope.getBinding(local);
       if (!binding?.path.isImportSpecifier()) return;
       if (!isSetup(path)) throw path.buildCodeFrameError('KANSO_HOOK_SCOPE: hooks belong in a component or a compiled useX function.');
@@ -18,9 +18,17 @@ export function transformHooks(context: TransformContext): void {
       for (let parent = path.parentPath; parent && parent !== owner; parent = parent.parentPath!) {
         if (parent.isIfStatement() || parent.isConditionalExpression() || parent.isLogicalExpression() || parent.isSwitchStatement() || parent.isLoop()) throw path.buildCodeFrameError('KANSO_HOOK_ORDER: move conditional hooks into a child component.');
       }
-      if (['useRef', 'useId'].includes(name)) return;
+      if (['useRef', 'useId', 'useService'].includes(name)) return;
       path.node.callee = helper(context, names[name]);
       const args = path.node.arguments;
+      if (name === 'useStore') {
+        if (!args[0]) throw path.buildCodeFrameError('KANSO_STORE_ARGUMENT: provide a store.');
+        for (let index = 0; index < args.length; index++) {
+          const argument = args[index];
+          if (!t.isExpression(argument)) throw path.buildCodeFrameError('KANSO_STORE_ARGUMENT: pass explicit store, selector and equality arguments.');
+          args[index] = t.arrowFunctionExpression([], argument);
+        }
+      }
       if (name === 'useState' && args.length === 0) args.push(t.identifier('undefined'));
       if (['useEffect', 'useMemo', 'useCallback'].includes(name) && args[1]) {
         if (!t.isArrayExpression(args[1])) throw path.buildCodeFrameError('KANSO_DEPENDENCIES: use an inline dependency array.');
@@ -31,7 +39,7 @@ export function transformHooks(context: TransformContext): void {
       const declaration = path.parentPath;
       if (!declaration.isVariableDeclarator()) throw path.buildCodeFrameError('KANSO_HOOK_BINDING: assign the hook to a const binding.');
       if (!declaration.parentPath.isVariableDeclaration({ kind: 'const' })) throw path.buildCodeFrameError('KANSO_HOOK_BINDING: assign hooks to const.');
-      if (name === 'useContext' && !t.isIdentifier(declaration.node.id)) {
+      if (['useContext', 'useStore'].includes(name) && !t.isIdentifier(declaration.node.id)) {
         const id = declaration.scope.generateUidIdentifier('context');
         const pattern = declaration.node.id;
         declaration.node.id = id;

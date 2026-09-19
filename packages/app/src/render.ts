@@ -9,19 +9,22 @@ import type { SeoSnapshot } from './seo/types.js';
 import type { Bootstrap, RequestHandlerOptions } from './types.js';
 import { REMOTE_VERSIONS } from './microfrontends.js';
 import { SSR_REMOTE_PINS } from './forms.js';
+import type { ServiceScope } from '@kanso/core';
 
 const escape = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
 
 /** Resolve head after lazy fragments, then embed this request's bootstrap safely. */
-export async function renderPage(options: Pick<RequestHandlerOptions, 'routes' | 'assets' | 'seo' | 'timeoutMs' | 'buildId' | 'microfrontends' | 'microfrontendSession'>, bootstrap: Bootstrap, status = 200): Promise<Response> {
+export async function renderPage(options: Pick<RequestHandlerOptions, 'routes' | 'assets' | 'seo' | 'timeoutMs' | 'buildId' | 'microfrontends' | 'microfrontendSession'>, bootstrap: Bootstrap, status = 200, services?: ServiceScope): Promise<Response> {
   const head = options.seo ? createHeadRegistry(options.seo, () => bootstrap.url) : undefined;
   if (head) head.setSource(() => routeSeoLevels(options.routes, bootstrap, bootstrap.url, head.config));
   let snapshot: SeoSnapshot | undefined;
   let html = await renderToStringAsync(() => {
     if (head) useAssets(() => { snapshot = head.resolve(); return ''; });
-    return createComponent(App, { routes: options.routes, url: bootstrap.url, bootstrap, seo: options.seo, head, microfrontends: options.microfrontends, microfrontendSession: options.microfrontendSession });
+    return createComponent(App, { routes: options.routes, url: bootstrap.url, bootstrap, seo: options.seo, head, microfrontends: options.microfrontends, microfrontendSession: options.microfrontendSession, services });
   }, { timeoutMs: options.timeoutMs ?? 10000 });
   if (options.microfrontendSession?.renderError) throw options.microfrontendSession.renderError;
+  const snapshots = services?.snapshot();
+  if (snapshots && Object.keys(snapshots).length) bootstrap.services = snapshots;
   if (snapshot) bootstrap.seo = snapshot;
   if (options.microfrontendSession) {
     bootstrap.remotes = options.microfrontendSession.pins();

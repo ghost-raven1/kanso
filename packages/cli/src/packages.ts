@@ -1,7 +1,7 @@
 import { readFile, realpath } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
-export const KANSO_VERSION = '0.6.1';
+export const KANSO_VERSION = '0.7.0';
 export const KANSO_PACKAGES = ['core', 'compiler', 'vite', 'app', 'cli', 'microfrontends', 'workers'] as const;
 
 /** Resolve all unpublished workspace packages consistently in generated projects. */

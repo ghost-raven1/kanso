@@ -1,6 +1,16 @@
 # Проверка реализации — 20 сентября 2026
 
-Версия Kanso 0.6.1. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
+Версия Kanso 0.7.0. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
+
+## Внешние stores и сервисы 0.7
+
+`tests/external-store.test.ts`, `tests/services.test.ts`, `tests/services-server.test.ts` и type fixtures закрепляют selector/equality, замену источника, race при регистрации, изоляцию, явную сериализацию, зависимости, disposal, native actions, lazy SSR, HEAD/redirect/error/timeout и отсутствие кеширования при ошибке cleanup.
+
+`npm run test:services` устанавливает tarballs Kanso и Zustand 5.0.15 вне workspace, без React в lockfile. Проверяет TypeScript, production SSR, server snapshot, исходный DOM/ввод, отсутствие повторного initial loader, общие экземпляры, back/forward, revalidation и устаревшие ответы. Отчёт — `output/services/results.json`; сценарий входит в `test:compatibility`, которую запускают CI и Dockerfile.test. Копия результата сохраняется в существующий CI artifact `output/browser/services-results.json`. HMR suite дополнительно проверяет сохранение внешнего сервиса при правке потребителя и снятие его подписки при unmount.
+
+Локально прошли `npm run check` (244/244 Vitest, TypeScript, production builds, dependency audit), stores/lab/compatibility/HMR/web в Chromium и WebKit и SEO CLI. Все три браузера проверяет отдельный CI-запуск для SHA выпуска.
+
+API описано в [руководстве](services.md). Поддержка runtime не означает автоматической миграции React hooks Zustand: пакетный аудит optional React peers пока остаётся консервативным.
 
 ## Подготовка миграции 0.6.1
 
@@ -76,4 +86,4 @@ FCP/LCP измерены для этих небольших CSR-эталонов
 
 ## Граница готовности
 
-Доступна версия 0.6 с перечисленными контрактами, HMR, CSR/SSR-шаблонами и проверяемым мигратором. Это не утверждение о полной совместимости произвольного React-кода или всей экосистемы. Ограничения hooks, типов, map callback, управления потоком и границ HMR перечислены в semantics.md, migration.md и dx.md. При обновлении родителя HMR может пересоздать дочернее поддерево; сохранение DOM и фокуса при HMR не гарантируется.
+Доступна версия 0.7 с перечисленными контрактами, HMR, CSR/SSR-шаблонами и проверяемым мигратором. Это не утверждение о полной совместимости произвольного React-кода или всей экосистемы. Ограничения hooks, типов, map callback, управления потоком и границ HMR перечислены в semantics.md, migration.md и dx.md. При обновлении родителя HMR может пересоздать дочернее поддерево; сохранение DOM и фокуса при HMR не гарантируется.

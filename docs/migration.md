@@ -70,3 +70,7 @@ Context поддерживает реактивный Provider.value; добав
 `pending` теперь включает revalidation. Ошибка обновления доступна отдельно через `useRevalidator`; повторный refresh не повторяет сохранение. При смене URL pending-запрос формы отменяется, её состояние очищается. Старые `useForm<T>(routeId?)` и `Record<string, RouteHandlers>` поддерживаются.
 
 Можно постепенно перейти на `defineRouteHandlers`, `routeUrl`, `RouteParams` и `LoaderData`. Серверные типы импортируются через `import type`; runtime-import по-прежнему запрещён. Новые преобразования мигратора для роутинга или форм в 0.5 не добавлены. См. [полный контракт](web-apps.md).
+
+## Внешнее состояние
+
+Начиная с 0.7 внешние stores с `getState` / `subscribe` можно подключать через `useStore`; `defineService` создаёт экземпляры на приложение и SSR-запрос. [Пример с Zustand vanilla](services.md). Перенос React hooks стороннего store выполняется явно. Пакетный аудит React peer dependencies пока консервативен и может блокировать vanilla subpath; автоматический мигратор не обещает перенести такой пакет.
