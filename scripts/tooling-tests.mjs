@@ -47,11 +47,13 @@ try {
   const source = await readFile(join(root,'src/App.tsx'),'utf8');
   await writeFile(join(root,'src/App.tsx'), source.replace('Count:', 'Hot update:'));
   await page.getByRole('button', { name: /Hot update:/ }).waitFor();
+  assert.equal(await page.getByRole('button').textContent(), 'Hot update: 1', 'compatible JSX edit preserves state');
   await page.getByRole('button').click();
   const hookPath=join(root,'src/hooks/useCounter.ts');
   const hookSource=await readFile(hookPath,'utf8');
   await writeFile(hookPath,hookSource.replace('value + 1','value + 2').replace('hook v1','hook v2'));
   await page.waitForFunction(()=>document.querySelector('button')?.dataset.hook==='hook v2');
+  assert.equal(await page.getByRole('button').textContent(), 'Hot update: 2', 'hook implementation edit preserves state');
   const before=Number((await page.getByRole('button').textContent()).split(':').at(-1));
   await page.getByRole('button').click();
   assert.equal(Number((await page.getByRole('button').textContent()).split(':').at(-1)), before+2);

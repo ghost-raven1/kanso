@@ -1,6 +1,22 @@
 {
-  "name": "@kanso/vite", "version": "0.3.0", "type": "module", "files": ["dist"],
-  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
-  "dependencies": { "@kanso/compiler": "0.3.0", "vite-plugin-solid": "2.11.14" },
-  "peerDependencies": { "vite": "^7.0.0 || ^8.0.0", "solid-js": "^1.9.15" }
+  "name": "@kanso/vite",
+  "version": "0.4.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@kanso/compiler": "0.4.0",
+    "vite-plugin-solid": "2.11.14"
+  },
+  "peerDependencies": {
+    "vite": "^7.0.0 || ^8.0.0",
+    "solid-js": "^1.9.15"
+  }
 }

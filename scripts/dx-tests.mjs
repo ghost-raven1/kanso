@@ -1,0 +1,115 @@
+import { mkdir, mkdtemp, readFile, writeFile, cp } from 'node:fs/promises';
+import { resolve, join } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import assert from 'node:assert/strict';
+import { chromium, firefox, webkit } from 'playwright';
+import { createProject, migrate, doctor } from '@kanso/cli';
+import { run, start, stop, viteArgs } from './test-project.mjs';
+
+await mkdir('output/dx', { recursive: true });
+const packed = {};
+for (const name of ['core', 'compiler', 'vite', 'app', 'cli']) {
+  const data = JSON.parse(execFileSync('npm', ['pack', '--json', '--pack-destination', resolve('output/dx')], { cwd: `packages/${name}`, encoding: 'utf8' }));
+  packed[`@kanso/${name}`] = `file:${resolve('output/dx', data[0].filename)}`;
+}
+const browsers = (process.env.KANSO_BROWSERS ?? 'chromium,firefox,webkit').split(',');
+const engines = { chromium, firefox, webkit };
+const results = [];
+const install = root => run(root, 'npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--workspaces=false']);
+async function usePacked(root) {
+  const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+  pkg.devDependencies = { ...pkg.devDependencies, ...packed };
+  for (const name of Object.keys(packed)) if (pkg.dependencies?.[name]) { pkg.dependencies[name] = packed[name]; delete pkg.devDependencies[name]; }
+  await writeFile(join(root, 'package.json'), JSON.stringify(pkg, null, 2));
+}
+async function scenario(page, kind) {
+  await page.goto('http://127.0.0.1:4181');
+  if (kind === 'profile') {
+    await page.getByLabel('Name').fill('Kanso'); await page.getByRole('button', { name: 'Theme' }).click();
+    assert.equal(await page.locator('[data-name]').textContent(), 'Kanso'); assert.equal(await page.locator('[data-theme]').textContent(), 'dark');
+    await page.getByRole('button', { name: 'Focus' }).click(); assert.equal(await page.getByLabel('Name').evaluate(node => node === document.activeElement), true);
+  } else if (kind === 'catalog') {
+    await page.getByLabel('Note 1').fill('keep');
+    await page.getByRole('button', { name: 'Reverse' }).click(); await page.getByRole('button', { name: 'Replace' }).click();
+    assert.deepEqual(await page.locator('[data-row]').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-row'))), ['2', '1']);
+    assert.equal(await page.getByLabel('Note 1').inputValue(), 'keep'); assert.equal(await page.locator('[data-row="1"] span').textContent(), 'Alpha!.');
+    await page.getByLabel('Search').fill('Beta'); assert.equal(await page.locator('[data-row]').count(), 1);
+  } else {
+    await page.locator('[data-counter]').first().click(); await page.getByRole('button', { name: 'Step', exact: true }).first().click(); await page.locator('[data-counter]').first().click();
+    assert.deepEqual(await page.locator('[data-counter]').allTextContents(), ['Count: 4', 'Count: 0']); assert.deepEqual(await page.locator('output').allTextContents(), ['8', '0']);
+  }
+}
+let server;
+try {
+  for (const kind of ['profile', 'catalog', 'hooks']) {
+    const root = await mkdtemp(resolve(`output/dx/${kind}-`));
+    await createProject(root, process.cwd()); await cp(`tests/fixtures/migration/${kind}/src`, join(root, 'src'), { recursive: true });
+    const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+    pkg.dependencies = { react: '^19.3.0', 'react-dom': '^19.3.0' };
+    pkg.devDependencies = { vite: '^8.3.0', typescript: '^5.9.0', '@vitejs/plugin-react': '^6.1.1', '@types/react': '^19.0.0', '@types/react-dom': '^19.0.0' };
+    await writeFile(join(root, 'package.json'), JSON.stringify(pkg, null, 2));
+    await writeFile(join(root, 'src/main.tsx'), `import{createRoot}from'react-dom/client';import{App}from'./App';createRoot(document.getElementById('root')!).render(<App/>);`);
+    await writeFile(join(root, 'tsconfig.base.json'), JSON.stringify({ compilerOptions: { strict: true, skipLibCheck: true, target: 'ES2022', module: 'ESNext', moduleResolution: 'Bundler', jsx: 'react-jsx', baseUrl: '.', paths: { '@/*': ['src/*'] }, lib: ['ES2022', 'DOM'], types: ['vite/client'] } }));
+    await writeFile(join(root, 'tsconfig.json'), JSON.stringify({ extends: './tsconfig.base.json', include: ['src'] }));
+    await writeFile(join(root, 'vite.config.ts'), `import{defineConfig}from'vite';import react from'@vitejs/plugin-react';export default defineConfig({plugins:[react()],resolve:{tsconfigPaths:true}});`);
+    install(root); run(root, 'npm', ['run', 'typecheck']); run(root, 'npm', ['run', 'build']);
+    for (const phase of ['react', 'kanso']) {
+      if (phase === 'kanso') {
+        const report = await migrate({ root, apply: true, local: process.cwd() }); assert.deepEqual(report.diagnostics, []); assert.equal(report.applied, true);
+        assert.deepEqual((await migrate({ root })).changes, []);
+        await usePacked(root); install(root); run(root, 'npm', ['run', 'typecheck']); run(root, 'npm', ['run', 'build']);
+        assert.deepEqual((await doctor({ root })).diagnostics, []);
+        const lock = JSON.parse(await readFile(join(root, 'package-lock.json'), 'utf8'));
+        assert.equal(Object.keys(lock.packages).some(name => /node_modules\/(react|react-dom)$/.test(name)), false);
+      }
+      server = await start(root, viteArgs('preview', 4181), 4181);
+      for (const name of browsers) {
+        const browser = await engines[name].launch();
+        try { const page = await browser.newPage(); const errors = []; page.on('pageerror', error => errors.push(error.message)); await scenario(page, kind); assert.deepEqual(errors, []); results.push({ kind, phase, browser: name, passed: true }); }
+        finally { await browser.close(); }
+      }
+      await stop(server); server = undefined;
+    }
+    console.log(`DX migration passed: ${kind}`);
+  }
+  for (const template of ['csr', 'ssr']) {
+    const root = await mkdtemp(resolve(`output/dx/starter-${template}-`));
+    await createProject(root, undefined, { template }); await usePacked(root); install(root);
+    assert.deepEqual((await doctor({ root })).diagnostics, []);
+    const cli = join(root, 'node_modules/@kanso/cli/dist/bin.js');
+    const valid = JSON.parse(execFileSync(process.execPath, [cli, 'doctor', '--root', root, '--json'], { encoding: 'utf8' })); assert.deepEqual(valid.diagnostics, []);
+    const configPath = join(root, 'tsconfig.json'); const originalConfig = await readFile(configPath, 'utf8');
+    await writeFile(configPath, originalConfig.replace('preserve', 'react-jsx'));
+    let invalid; try { execFileSync(process.execPath, [cli, 'doctor', '--root', root, '--json'], { encoding: 'utf8', stdio: 'pipe' }); } catch (error) { invalid = error; }
+    assert.equal(invalid?.status, 2); assert.ok(JSON.parse(invalid.stdout).diagnostics.some(item => item.code === 'JSX_CONFIG'));
+    await writeFile(configPath, originalConfig);
+    let failure; try { execFileSync(process.execPath, [cli, 'doctor', '--root', join(root, 'missing')], { stdio: 'pipe' }); } catch (error) { failure = error; } assert.equal(failure?.status, 1);
+    run(root, 'npm', ['run', 'typecheck']); run(root, 'npm', ['run', 'build']);
+    if (template === 'ssr') {
+      for (const phase of ['dev', 'production']) {
+        server = await start(root, phase === 'dev' ? viteArgs('', 4181) : ['scripts/serve.mjs'], 4181, { PORT: '4181' });
+        const html = await (await fetch('http://127.0.0.1:4181')).text();
+        assert.match(html, /Hello from Kanso SSR/); assert.match(html, /<title[^>]*>My Kanso app<\/title>/);
+        for (const name of browsers) {
+          const browser = await engines[name].launch();
+          try {
+            const page = await browser.newPage(); const errors = []; const dataRequests = []; page.on('pageerror', error => errors.push(error.message)); page.on('request', req => { if (req.url().includes('/_kanso/data')) dataRequests.push(req.url()); });
+            await page.addInitScript(() => {
+              const observer = new MutationObserver(() => { const input = document.querySelector('input'); if (input) { window.initialInput = input; window.initialId = input.id; input.value = 'before hydration'; observer.disconnect(); } });
+              observer.observe(document, { childList: true, subtree: true });
+            });
+            await page.route('**/src/main.tsx', async route => { await new Promise(resolve => setTimeout(resolve, 150)); await route.continue(); });
+            await page.goto('http://127.0.0.1:4181'); await page.getByRole('button').click();
+            assert.deepEqual(await page.evaluate(() => ({ same: window.initialInput === document.querySelector('input'), id: window.initialId === document.querySelector('input').id, value: document.querySelector('input').value })), { same: true, id: true, value: 'before hydration' });
+            assert.equal(await page.getByRole('button').textContent(), 'Count: 1'); assert.deepEqual(dataRequests, []); assert.deepEqual(errors, []);
+            results.push({ template, phase, browser: name, passed: true });
+          } finally { await browser.close(); }
+        }
+        await stop(server); server = undefined;
+      }
+    }
+    results.push({ template, packedInstall: true, doctor: true, typecheck: true, build: true });
+  }
+  await writeFile('output/dx/results.json', JSON.stringify(results, null, 2));
+  console.log('DX passed: React scenarios, transactional migration, packed installs, doctor, CSR/SSR starters.');
+} finally { await stop(server); }

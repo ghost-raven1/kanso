@@ -30,7 +30,7 @@ export function transformLists(context: TransformContext): void {
         const newId = callbackPath.scope.generateUidIdentifier(id.name);
         replaceReads(callbackPath.scope.getBinding(id.name), () => t.callExpression(t.cloneNode(newId), []));
         id.name = newId.name;
-        context.reactive.add(newId.name);
+        context.reactive.add(id);
       });
       render.body.openingElement.attributes = render.body.openingElement.attributes.filter(attr => attr !== key);
       const component = t.jsxIdentifier(helper(context, '__Keyed').name);

@@ -1,14 +1,12 @@
-import { readFile, stat } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { parse } from '@babel/parser';
 import * as t from '@babel/types';
 
 const hookName = (name: string) => /^use[A-Z]/.test(name);
 const identifier = (node: t.Identifier | t.StringLiteral) => t.isIdentifier(node) ? node.name : node.value;
-const extensions = ['', '.ts', '.tsx', '.js', '.jsx', '/index.ts', '/index.tsx', '/index.js'];
 
 /** Resolve only local, statically named hooks whose implementation is compiled in this graph. */
-export function createHookAudit(root: string) {
+export function createHookAudit(root: string, resolver: (from: string, source: string) => Promise<string | undefined>) {
   const modules = new Map<string, Promise<t.Program>>();
   const contracts = new Map<string, Promise<boolean>>();
   const read = (file: string) => {
@@ -16,15 +14,9 @@ export function createHookAudit(root: string) {
     if (!result) { result = readFile(file, 'utf8').then(source => parse(source, { sourceType: 'module', plugins: ['typescript','jsx'] }).program); modules.set(file, result); }
     return result;
   };
-  const resolveLocal = async (file: string, source: string): Promise<string | undefined> => {
-    if (!source.startsWith('.')) return undefined;
-    const base = resolve(dirname(file), source);
-    if (!base.startsWith(root + '/')) return undefined;
-    for (const extension of extensions) { try { if ((await stat(base + extension)).isFile()) return base + extension; } catch {} }
-    if (base.endsWith('.js')) for (const extension of ['.ts', '.tsx']) {
-      try { if ((await stat(base.slice(0,-3) + extension)).isFile()) return base.slice(0,-3) + extension; } catch {}
-    }
-    return undefined;
+  const resolveLocal = async (file: string, source: string) => {
+    const target = await resolver(file, source);
+    return target && target.startsWith(root + '/') ? target : undefined;
   };
   const exported = async (file: string, name: string, seen = new Set<string>()): Promise<boolean> => {
     const key = `${file}:${name}`;

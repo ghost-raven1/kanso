@@ -55,7 +55,7 @@ it('preserves handler snapshots, function arguments and one-time defaults', asyn
 it('rejects impure returned calculations, conditional setup and unsafe patterns', () => {
   expect(()=>compile(`export function useBad(n){return unknown(n)}`)).toThrow('KANSO_HOOK_RESULT_PURITY');
   expect(()=>compile(`function useN(){return 1}function App({show}){if(show){const n=useN()}return <p/>}`)).toThrow('KANSO_HOOK_ORDER');
-  expect(()=>compile(`export function useN({n}){return n}`)).toThrow('KANSO_HOOK_PARAMETER');
+  expect(()=>compile(`export function useN(...args){return args[0]}`)).toThrow('KANSO_HOOK_PARAMETER');
   expect(()=>compile(`export function useN(n){if(n)return 1;return 2}`)).toThrow('KANSO_HOOK_RETURN');
   expect(()=>compile(`import{useN}from'./hook';const alias=useN;`)).toThrow('KANSO_HOOK_REFERENCE');
   expect(()=>compile(`function useN(n){return arguments[0]}`)).toThrow('KANSO_HOOK_PARAMETER');

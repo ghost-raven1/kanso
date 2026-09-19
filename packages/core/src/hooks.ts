@@ -1,5 +1,5 @@
 import {
-  createEffect, createMemo, createSignal, getOwner, onCleanup, untrack,
+  createEffect, createMemo, createSignal, createUniqueId, getOwner, onCleanup, untrack,
   type Accessor,
 } from 'solid-js';
 import type { DependencyList, StateSetter, Effect, Ref } from './types.js';
@@ -75,3 +75,6 @@ export function useMemo<T>(factory: () => T, dependencies?: DependencyList): T;
 export function useMemo(): never { return compileRequired(); }
 export function useCallback<T extends (...args: never[]) => unknown>(callback: T, dependencies?: DependencyList): T;
 export function useCallback(): never { return compileRequired(); }
+
+/** Stable DOM identifier shared by SSR and hydration. */
+export function useId(): string { ownerRequired(); return createUniqueId(); }

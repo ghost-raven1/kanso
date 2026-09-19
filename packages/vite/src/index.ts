@@ -3,13 +3,13 @@ import type { Plugin, PluginOption, ResolvedConfig } from 'vite';
 import { kansoBabelPlugin } from '@kanso/compiler';
 import { createHash } from 'node:crypto';
 
-export interface KansoOptions { buildId?: string; routes?: Record<string, string> }
+export interface KansoOptions { buildId?: string; hmr?: 'preserve' | 'remount' | false; routes?: Record<string, string> }
 export interface AssetManifest {
   version: 1; buildId: string; base: string;
   entries: string[]; styles: string[]; routes: Record<string, { files: string[]; styles: string[] }>;
 }
 
-/** Compiler + Solid HMR + route assets; server modules cannot enter client graphs. */
+/** Compiler, Kanso refresh boundaries and route assets; reject server modules in client graphs. */
 export default function kanso(options: KansoOptions = {}): PluginOption[] {
   let config: ResolvedConfig;
   const framework: Plugin = {
@@ -58,11 +58,11 @@ export default function kanso(options: KansoOptions = {}): PluginOption[] {
     },
   };
   return [framework, solid({
-    ssr: true,
+    ssr: true, hot: false,
     // Linked packages expose compiled JS too; never compile their hook ABI twice.
     exclude: [/[/\\]node_modules[/\\]/, /[/\\]dist(?:-server)?[/\\]/],
     extensions: [['.ts', { typescript: true }], '.js'],
-    babel: { plugins: [kansoBabelPlugin] },
+    babel: (_source, _id, isSsr) => ({ plugins: [[kansoBabelPlugin, { hmr: !isSsr && config.command === 'serve' && config.mode !== 'production' && options.hmr !== false ? options.hmr ?? 'preserve' : undefined }]] }),
   })];
 }
 export { kanso };

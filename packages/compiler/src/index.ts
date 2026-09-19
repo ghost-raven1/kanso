@@ -4,17 +4,19 @@ import solid from 'babel-preset-solid';
 import { transformProps, transformLocalProps } from './props.js';
 import { transformHooks, transformDerived } from './state.js';
 import { transformLists, transformJsx } from './jsx.js';
-import type { TransformContext } from './context.js';
+import { importedName, type TransformContext } from './context.js';
+import { prepareRefresh, finishRefresh } from './hmr.js';
 import { transformControlFlow } from './control-flow.js';
 import { transformHookParameters, transformCustomCalls, transformHookArguments, transformHookReturns } from './custom-hooks.js';
 
 /** Runs before Solid JSX lowering; no React runtime or compiler is involved. */
-export function kansoBabelPlugin(): PluginObj {
+export function kansoBabelPlugin(_api?: unknown, options: { hmr?: 'preserve' | 'remount' } = {}): PluginObj {
   return { name: 'kanso', visitor: { Program(program) {
+    const refresh = options.hmr ? prepareRefresh(program, options.hmr) : undefined;
     const context: TransformContext = { program, imports: new Map(), helpers: new Map(), reactive: new Set(), props: new Set() };
     for (const statement of program.node.body) {
       if (!t.isImportDeclaration(statement) || !['@kanso/core', '@kanso/app'].includes(statement.source.value)) continue;
-      for (const specifier of statement.specifiers) if (t.isImportSpecifier(specifier) && t.isIdentifier(specifier.imported)) context.imports.set(specifier.local.name, specifier.imported.name);
+      for (const specifier of statement.specifiers) if (t.isImportSpecifier(specifier) && t.isIdentifier(specifier.imported)) context.imports.set(specifier.local, specifier.imported.name);
     }
     transformHookParameters(context);
     program.scope.crawl();
@@ -29,18 +31,19 @@ export function kansoBabelPlugin(): PluginObj {
     program.traverse({ VariableDeclarator(path) {
       const { id, init } = path.node;
       if (!t.isCallExpression(init) || !t.isIdentifier(init.callee)) return;
-      const name = context.imports.get(init.callee.name);
-      if (name === 'createStore' && t.isArrayPattern(id) && t.isIdentifier(id.elements[0])) context.props.add(id.elements[0].name);
-      if (['useLoaderData', 'useForm', 'useContext'].includes(name ?? '')) {
-        if (t.isIdentifier(id)) context.props.add(id.name);
+      const name = importedName(context, path.scope, init.callee.name);
+      if (name === 'createStore' && t.isArrayPattern(id) && t.isIdentifier(id.elements[0])) context.props.add(id.elements[0]);
+      if (['useLoaderData', 'useForm'].includes(name ?? '')) {
+        if (t.isIdentifier(id)) context.props.add(id);
         else if (t.isObjectPattern(id) && path.parentPath.isVariableDeclaration()) {
           const object = path.scope.generateUidIdentifier('data');
-          context.props.add(object.name);
+          context.props.add(object);
           path.parentPath.insertBefore(t.variableDeclaration('const', [t.variableDeclarator(object, init)]));
           path.node.init = object;
         }
       }
     } });
+    program.scope.crawl();
     transformLocalProps(context);
     program.scope.crawl();
     transformDerived(context);
@@ -51,6 +54,7 @@ export function kansoBabelPlugin(): PluginObj {
     if (context.helpers.size) program.unshiftContainer('body', t.importDeclaration(
       [...context.helpers].map(([name, id]) => t.importSpecifier(id, t.identifier(name))), t.stringLiteral('@kanso/core/internal'),
     ));
+    if (refresh) finishRefresh(program, refresh);
   } } };
 }
 

@@ -1,6 +1,7 @@
 import type { Binding, NodePath } from '@babel/traverse';
 import * as t from '@babel/types';
 import { helper, replaceReads, hasReactive, isPureExpression, isSetup, type TransformContext } from './context.js';
+import { bindPattern } from './patterns.js';
 
 const hookName = (path: NodePath<t.Function>): string | undefined =>
   (path.isFunctionDeclaration() || path.isFunctionExpression()) && path.node.id ? path.node.id.name
@@ -35,43 +36,20 @@ export function transformHookParameters(context: TransformContext): void {
     if (!t.isBlockStatement(path.node.body)) path.node.body = t.blockStatement([t.returnStatement(path.node.body)]);
     const declarations: t.Statement[] = [];
     for (const [index, parameter] of path.node.params.entries()) {
-      const name = t.isAssignmentPattern(parameter) ? parameter.left : parameter;
-      if (!t.isIdentifier(name)) throw path.buildCodeFrameError('KANSO_HOOK_PARAMETER: use named parameters and read object fields explicitly.');
-      const binding = path.scope.getBinding(name.name);
-      const read = path.scope.generateUidIdentifier(name.name);
-      replaceReads(binding, () => t.callExpression(t.cloneNode(read), []));
-      const raw = path.scope.generateUidIdentifier(`${name.name}Input`);
-      raw.typeAnnotation = name.typeAnnotation;
-      path.node.params[index] = raw;
+      if (t.isRestElement(parameter) || t.isTSParameterProperty(parameter)) throw path.buildCodeFrameError('KANSO_HOOK_PARAMETER: variadic hook parameters are unsupported.');
+      const pattern = t.isAssignmentPattern(parameter) ? parameter.left : parameter;
+      const raw = path.scope.generateUidIdentifier('argument');
+      if (t.isIdentifier(pattern) || t.isArrayPattern(pattern) || t.isObjectPattern(pattern)) raw.typeAnnotation = pattern.typeAnnotation;
+      const read = path.scope.generateUidIdentifier('argumentRead');
       const args: t.Expression[] = [t.cloneNode(raw)];
       if (t.isAssignmentPattern(parameter)) args.push(t.arrowFunctionExpression([], parameter.right));
-      declarations.push(t.variableDeclaration('const', [t.variableDeclarator(read, t.callExpression(helper(context, '__hookArgument'), args))]));
-      context.reactive.add(read.name);
+      const bindings = bindPattern(context, path, pattern, t.callExpression(t.cloneNode(read), []), true);
+      path.node.params[index] = raw;
+      declarations.push(t.variableDeclaration('const', [t.variableDeclarator(read, t.callExpression(helper(context, '__hookArgument'), args)), ...bindings]));
+      context.reactive.add(read);
     }
     path.node.body.body.unshift(...declarations);
   } });
-}
-
-function bindResult(path: NodePath<t.VariableDeclarator>, result: t.Identifier, context: TransformContext): t.VariableDeclarator[] {
-  const declarations: t.VariableDeclarator[] = [];
-  const bind = (pattern: t.Node, access: t.Expression) => {
-    const name = t.isAssignmentPattern(pattern) ? pattern.left : pattern;
-    if (!t.isIdentifier(name)) throw path.buildCodeFrameError('KANSO_HOOK_BINDING: use flat named tuple/object bindings without rest.');
-    const read = path.scope.generateUidIdentifier(name.name);
-    replaceReads(path.scope.getBinding(name.name), () => t.callExpression(t.cloneNode(read), []));
-    const value = t.isAssignmentPattern(pattern) ? t.conditionalExpression(t.binaryExpression('===', t.cloneNode(access, true), t.identifier('undefined')), pattern.right, access) : access;
-    declarations.push(t.variableDeclarator(read, t.callExpression(helper(context, '__derived'), [t.arrowFunctionExpression([], value)])));
-    context.reactive.add(read.name);
-  };
-  const id = path.node.id;
-  if (t.isArrayPattern(id)) id.elements.forEach((element, index) => {
-    if (element) bind(element, t.memberExpression(t.callExpression(t.cloneNode(result), []), t.numericLiteral(index), true));
-  });
-  else if (t.isObjectPattern(id)) for (const property of id.properties) {
-    if (!t.isObjectProperty(property) || property.computed || !t.isIdentifier(property.key)) throw path.buildCodeFrameError('KANSO_HOOK_BINDING: use named fields without rest.');
-    bind(property.value, t.memberExpression(t.callExpression(t.cloneNode(result), []), t.cloneNode(property.key)));
-  }
-  return declarations;
 }
 
 /** A call crosses the module boundary once; each returned binding is independently memoized. */
@@ -108,10 +86,11 @@ export function transformCustomCalls(context: TransformContext): void {
       declaration.node.id = result;
       declaration.node.init = call;
     } else {
-      const bindings = bindResult(declaration, result, context);
+      const bindings = bindPattern(context, declaration, declaration.node.id, t.callExpression(t.cloneNode(result), []));
       declaration.replaceWithMultiple([t.variableDeclarator(result, call), ...bindings]);
     }
-    context.reactive.add(result.name);
+    context.reactive.add(result);
+    declaration.scope.crawl();
     path.skip();
   } });
 }
@@ -124,8 +103,8 @@ export function transformHookArguments(context: TransformContext): void {
     if (!t.isIdentifier(path.node.callee, { name: pending.name })) return;
     const argument = path.node.arguments[0];
     if (!t.isExpression(argument)) return;
-    if (t.isFunction(argument) || !hasReactive(argument, context)) { path.replaceWith(argument); return; }
-    if (!isPureExpression(argument, context)) throw path.buildCodeFrameError('KANSO_PURITY: a live hook argument must be a pure expression.');
+    if (t.isFunction(argument) || !hasReactive(path.get('arguments')[0], context)) { path.replaceWith(argument); return; }
+    if (!isPureExpression(path.get('arguments')[0], context)) throw path.buildCodeFrameError('KANSO_PURITY: a live hook argument must be a pure expression.');
     path.replaceWith(t.callExpression(helper(context, '__liveArgument'), [t.arrowFunctionExpression([], argument)]));
   } } });
   context.helpers.delete('__pendingHookArgument');
@@ -144,21 +123,7 @@ export function transformHookReturns(context: TransformContext): void {
     if (!returns.length) { path.node.body.body.push(t.returnStatement(t.callExpression(helper(context, '__hookResult'), [t.arrowFunctionExpression([], t.identifier('undefined'))]))); return; }
     const statement = returns[0];
     const value = statement.node.argument ?? t.identifier('undefined');
-    // Function bodies execute later, not while constructing the return value.
-    const purity = t.cloneNode(value, true);
-    const stripFunctions = (node: t.Node) => {
-      for (const key of t.VISITOR_KEYS[node.type] ?? []) {
-        const record = node as unknown as Record<string, unknown>;
-        const child = record[key];
-        if (Array.isArray(child)) record[key] = child.map(value => value && t.isFunction(value) ? t.arrowFunctionExpression([], t.numericLiteral(0)) : value);
-        else if (child && t.isFunction(child as t.Node)) record[key] = t.arrowFunctionExpression([], t.numericLiteral(0));
-        for (const value of Array.isArray(record[key]) ? record[key] as t.Node[] : [record[key] as t.Node]) if (value && !t.isFunction(value)) stripFunctions(value);
-      }
-    };
-    if (!t.isFunction(purity)) {
-      stripFunctions(purity);
-      if (!isPureExpression(purity, context)) throw statement.buildCodeFrameError('KANSO_HOOK_RESULT_PURITY: move work into setup, useMemo or useEffect; return a pure value.');
-    }
+    if (!isPureExpression(statement.get('argument'), context)) throw statement.buildCodeFrameError('KANSO_HOOK_RESULT_PURITY: move work into setup, useMemo or useEffect; return a pure value.');
     statement.node.argument = t.callExpression(helper(context, '__hookResult'), [t.arrowFunctionExpression([], value)]);
   } });
 }

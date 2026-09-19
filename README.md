@@ -2,7 +2,7 @@
 
 React-shaped TSX. Solid reactivity. No React runtime.
 
-Рабочая реализация **0.3.0**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Это ограниченная первая версия, а не совместимый со всей экосистемой React runtime.
+Рабочая реализация **0.4.0**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Это ограниченная первая версия, а не совместимый со всей экосистемой React runtime.
 
 ```tsx
 import { useState, useEffect } from '@kanso/core';
@@ -48,6 +48,14 @@ export function Counter() {
 ```
 
 Hook и компонент создаются один раз на экземпляр. Возвращаемые значения остаются реактивными через границу модуля; ручные accessor-функции в исходном коде не нужны. Изменяемые аргументы тоже остаются живыми. Hook и его потребители должны собираться одной версией компилятора Kanso.
+
+## Разработка в 0.4
+
+Реактивный Context поддерживает замену primitive и объектов. Вложенная деструктуризация props и hooks, object/array rest и `useId` сохраняют привычную форму кода. Мигратор понимает стандартные aliases и показывает позиции ошибок в исходниках.
+
+HMR сохраняет состояние при совместимых правках компонента и custom hooks; изменение структуры hooks вызывает явный сброс. Добавлены `kanso doctor` и SSR-шаблон с серверным HTML также в development.
+
+[Руководство по разработке](docs/dx.md) · [миграция](docs/migration.md).
 
 ## SEO: конфиг и JSX
 
@@ -103,13 +111,14 @@ React, React DOM и React Compiler отсутствуют в workspace lockfile.
 До публикации пакетов используется локальный workspace:
 
 ```bash
-node packages/cli/dist/bin.js create ../my-kanso-app --local "$PWD"
+node packages/cli/dist/bin.js create ../my-kanso-app --template csr --local "$PWD"
+# Для SSR: --template ssr
 cd ../my-kanso-app
 npm install
 npm run dev
 ```
 
-Сгенерированный проект включает TypeScript, Vite и пример компонента. Существующая непустая папка не перезаписывается.
+CSR-шаблон включает TypeScript, Vite и пример компонента. SSR-шаблон добавляет маршруты, loader, SEO, гидратацию и Node server. Существующая непустая папка не перезаписывается.
 
 ## Миграция React + Vite
 
@@ -182,6 +191,8 @@ npx playwright install chromium firefox webkit
 npm run test:browser      # SSR/hydration, ввод, DOM identity, формы, список, lazy, mobile
 npm run test:seo          # production HTML, sitemap и exit codes диагностики
 npm run test:tooling      # настоящая миграция, npm install, build, HMR, server-only boundary
+npm run test:hmr          # состояние, refs, IDs, cleanup, Context, reset и ошибки HMR
+npm run test:dx           # три приложения до/после миграции, tarballs, doctor, CSR/SSR
 npm run bench            # production Kanso/Solid/React/memo/React Compiler
 ```
 
@@ -190,9 +201,9 @@ npm run bench            # production Kanso/Solid/React/memo/React Compiler
 Linux-проверка всех браузеров, в том числе при проблеме запуска Firefox на macOS 27:
 
 ```bash
-docker build -f Dockerfile.test -t kanso-test:0.3.0 .
+docker build -f Dockerfile.test -t kanso-test:0.4.0 .
 mkdir -p output/linux
-docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.3.0
+docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.4.0
 ```
 
 Результаты и скриншоты сохраняются в `output/`. Исходные условия и результаты замеров — в [отчёте](docs/validation.md). CI описан в `.github/workflows/ci.yml`.
@@ -201,6 +212,6 @@ docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kan
 
 Поддерживаются функциональные компоненты, именованные props и rest, keyed JSX map, терминальные return-ветви, перечисленные hooks и собственный веб-слой. Неоднозначные конструкции завершают компиляцию адресной диагностикой.
 
-Пользовательские `useX` поддерживают живые аргументы и возврат значения, объекта или tuple через отдельные `.ts`/`.js`-модули, именованные импорты и переэкспорты. Мигратор проверяет локальную реализацию до записи; неизвестные внешние hooks требуют порта. Поддержаны именованные параметры, плоская деструктуризация результата и один терминальный return; остальные формы получают диагностику. Context предназначен для передачи сервисов и реактивных объектов/store.
+Пользовательские `useX` поддерживают живые аргументы и возврат значения, объекта или tuple через отдельные `.ts`/`.js`-модули, именованные импорты и переэкспорты. Мигратор проверяет локальную реализацию до записи; неизвестные внешние hooks требуют порта. Поддержаны вложенные параметры и результаты, defaults, object/array rest и один терминальный return. Variadic-параметры и вычисляемые ключи диагностируются. Context обновляет потребителей при изменении Provider.value.
 
-Streaming SSR, RSC, перенос Next.js, React-библиотек и все особенности React event/concurrent runtime не входят в эту версию. HMR обновляет компоненты; сохранение локального состояния при замене их реализации не гарантируется.
+Streaming SSR, RSC, перенос Next.js, React-библиотек и все особенности React event/concurrent runtime не входят в эту версию. HMR сохраняет состояние совместимых границ; при изменении структуры hooks выполняется сброс. DOM и фокус внутри заменяемого компонента могут пересоздаваться.

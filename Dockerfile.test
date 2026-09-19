@@ -4,4 +4,4 @@ COPY package.json package-lock.json ./
 COPY packages ./packages
 RUN npm ci --ignore-scripts
 COPY . .
-CMD ["sh", "-c", "npm run check && npm run test:browser && cp output/browser/results.json /results/browser.json"]
+CMD ["sh", "-c", "npm run check && npm run test:browser && npm run test:hmr && npm run test:dx && cp output/hmr/results.json /results/hmr.json && cp output/dx/results.json /results/dx.json && cp output/browser/results.json /results/browser.json"]

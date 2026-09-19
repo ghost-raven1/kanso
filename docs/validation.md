@@ -1,16 +1,25 @@
 # Проверка реализации — 19 сентября 2026
 
-Версия Kanso 0.3.0. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
+Версия Kanso 0.4.0. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
 
 ## Подтверждённые результаты
 
-- npm run check: сборка пяти пакетов, TypeScript, **52/52 Vitest**, клиентская и серверная production-сборки, аудит lockfile — успешно.
-- В lockfile проверены 227 записей: React, React DOM, reconciler и React Compiler отсутствуют. Маркер server-only implementation отсутствует в клиентских чанках.
+- npm run check: сборка пяти пакетов, TypeScript, **64/64 Vitest**, клиентская и серверная production-сборки, аудит lockfile — успешно.
+- В lockfile проверены 227 записей: React, React DOM, reconciler и React Compiler отсутствуют. Маркеры server-only implementation и Kanso HMR отсутствуют в production-чанках.
 - npm run test:tooling: собственный React+Vite fixture мигрирован, результат идемпотентен; выполнены npm install, TypeScript, production build, HMR компонента и пользовательских hooks из отдельных .ts/.js-файлов. Проверены переэкспорт, alias и вложенный JavaScript-hook. Попытка импортировать .server.ts в браузер блокирует сборку.
 - Chromium и WebKit прошли проверки на macOS. Все три движка прошли тот же production-набор в Linux-контейнере: chromium 153.0.8010.12, firefox 155.0, webkit 26.6.
 - Для каждого браузера проверены: сохранение DOM при hydration; ввод до JavaScript; отсутствие повторного initial loader; точечные обновления; ключи, состояние и фокус; cleanup; validation/action/revalidation; lazy route и direct SSR; mobile overflow; сохранение HTML при недоступном JS.
 
 Firefox на macOS 27 не стартовал через subprocess из-за [известной проблемы Mozilla](https://bugzilla.mozilla.org/show_bug.cgi?id=2060476). Проверка выполнена на настоящем Firefox в официальном Linux-образе Playwright. WebKit означает движок Playwright, а не проверку установленного Safari.
+
+## Миграция и разработка 0.4
+
+- `npm run test:dx` выполняет пользовательские сценарии трёх React + Vite приложений: профиль (Context, формы, refs, useId), каталог (вложенные props, rest, фильтр и ключи), custom hooks (aliases, переэкспорты и вложенные вызовы). Затем применяет миграцию, проверяет её идемпотентность и повторяет сценарии после установки, TypeScript и production build.
+- Пять пакетов проверяются через `npm pack` и установку tarballs в изолированные приложения. React устанавливается только в fixtures; после миграции его нет в lockfile этих приложений. Упакованные CSR/SSR-шаблоны проходят doctor, typecheck и build.
+- SSR-шаблон проверяется в development и production: HTML и SEO без JavaScript, сохранение DOM input, значения и ID при гидратации, отсутствие повторного loader-запроса. Проверены реальные exit codes doctor: 0, 2, 1.
+- `npm run test:hmr` проверяет отдельное состояние экземпляров и keyed-строк, JSX и custom hooks, новую реализацию reducer, refs, useId, cleanup, несовместимую сигнатуру, восстановление после ошибки без reload и удаление состояния при unmount. Отдельно проверяются `remount` и отключённый HMR.
+- Контракты Vitest включают shadowed bindings, вложенные patterns/defaults/rest, primitive/object Context, статические aliases, унаследованный JSX config, исходные позиции диагностик и отказ от записи при несовместимости. TypeScript дополнительно проверяет тип DOM refs, включая ожидаемую ошибку несовместимого элемента.
+- Команды сохраняют отчёты в `output/dx/results.json` и `output/hmr/results.json`; GitHub Actions прикладывает их к запуску. Dockerfile.test запускает production-браузеры, HMR и DX в Chromium, Firefox и WebKit.
 
 ## SEO 0.3
 
@@ -41,4 +50,4 @@ FCP/LCP измерены для этих небольших CSR-эталонов
 
 ## Граница готовности
 
-Доступна работающая версия 0.3 с перечисленными контрактами, пользовательскими hooks и проверяемым мигратором. Это не утверждение о полной совместимости произвольного React-кода или всей экосистемы. Ограничения форм параметров/возврата hooks, Context, типов, map callback и управления потоком перечислены в semantics.md и migration.md.
+Доступна версия 0.4 с перечисленными контрактами, HMR, CSR/SSR-шаблонами и проверяемым мигратором. Это не утверждение о полной совместимости произвольного React-кода или всей экосистемы. Ограничения hooks, типов, map callback, управления потоком и границ HMR перечислены в semantics.md, migration.md и dx.md. При обновлении родителя HMR может пересоздать дочернее поддерево; сохранение DOM и фокуса при HMR не гарантируется.

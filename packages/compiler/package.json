@@ -1,8 +1,21 @@
 {
-  "name": "@kanso/compiler", "version": "0.3.0", "type": "module", "files": ["dist"],
-  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "name": "@kanso/compiler",
+  "version": "0.4.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "dependencies": {
-    "@babel/core": "^7.28.0", "@babel/types": "^7.28.0", "@babel/preset-typescript": "^7.27.1",
-    "babel-preset-solid": "1.9.15"
+    "@babel/core": "^7.28.0",
+    "@babel/types": "^7.28.0",
+    "@babel/preset-typescript": "^7.27.1",
+    "babel-preset-solid": "1.9.15",
+    "@babel/generator": "^7.28.0"
   }
 }

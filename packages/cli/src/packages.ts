@@ -1,0 +1,33 @@
+import { readFile, realpath } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { join } from 'node:path';
+export interface PackageManifest {
+  name: string;
+  version: string;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+}
+
+/** Inspect installed npm packages even when their exports intentionally hide the manifest or root. */
+export async function installedPackage(
+  root: string,
+  name: string,
+): Promise<{ file: string; manifest: PackageManifest }> {
+  const require = createRequire(join(root, 'package.json'));
+  for (const directory of require.resolve.paths(name) ?? []) {
+    const candidate = join(directory, name, 'package.json');
+    try {
+      const manifest = JSON.parse(
+        await readFile(candidate, 'utf8'),
+      ) as PackageManifest;
+      if (manifest.name === name)
+        return { file: await realpath(candidate), manifest };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+  }
+  throw new Error(
+    `Cannot inspect ${name}; install its dependencies before the audit.`,
+  );
+}
