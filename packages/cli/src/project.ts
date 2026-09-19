@@ -4,6 +4,7 @@ import { resolve, relative, dirname, extname, join } from 'node:path';
 import ts from 'typescript';
 import { migrateSource } from './source.js';
 import type { Change, Diagnostic, MigrationOptions, MigrationReport } from './types.js';
+import { createHookAudit } from './hook-audit.js';
 
 const extensions = ['', '.tsx', '.ts', '.jsx', '.js', '/index.tsx', '/index.ts', '/index.jsx', '/index.js'];
 const exists = async (path: string) => { try { return (await stat(path)).isFile(); } catch { return false; } };
@@ -46,6 +47,7 @@ export async function migrate(options: MigrationOptions): Promise<MigrationRepor
   const diagnostics: Diagnostic[] = [];
   const changes: Change[] = [];
   const seen = new Set<string>();
+  const auditHooks = createHookAudit(root);
   const packageFile = join(root, 'package.json');
   const originalPackage = await readFile(packageFile, 'utf8');
   const pkg = JSON.parse(originalPackage);
@@ -60,7 +62,7 @@ export async function migrate(options: MigrationOptions): Promise<MigrationRepor
     seen.add(file);
     const before = await readFile(file, 'utf8');
     try {
-      const result = migrateSource(before, relative(root, file));
+      const result = migrateSource(before, relative(root, file), await auditHooks(file));
       diagnostics.push(...result.diagnostics);
       if (before !== result.code) changes.push({ file: relative(root, file), before, after: result.code });
       for (const specifier of result.imports) {
@@ -101,7 +103,7 @@ export async function migrate(options: MigrationOptions): Promise<MigrationRepor
     for (const section of ['dependencies', 'devDependencies']) {
       for (const name of ['react', 'react-dom', '@types/react', '@types/react-dom', '@vitejs/plugin-react', '@vitejs/plugin-react-swc']) delete pkg[section]?.[name];
     }
-    const version = (name: string) => options.local ? `file:${resolve(options.local, 'packages', name)}` : '^0.1.0';
+    const version = (name: string) => options.local ? `file:${resolve(options.local, 'packages', name)}` : '^0.2.0';
     pkg.dependencies = { ...pkg.dependencies, '@kanso/core': pkg.dependencies?.['@kanso/core'] ?? version('core') };
     pkg.devDependencies = { ...pkg.devDependencies, '@kanso/vite': pkg.devDependencies?.['@kanso/vite'] ?? version('vite') };
     changes.push({ file: 'package.json', before: originalPackage, after: JSON.stringify(pkg, null, 2) + '\n' });

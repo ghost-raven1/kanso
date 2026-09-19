@@ -2,7 +2,7 @@
 
 React-shaped TSX. Solid reactivity. No React runtime.
 
-Рабочая реализация **0.1.0**: компилятор, ядро, Vite, мигратор и веб-слой с SSR. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Это ограниченная первая версия, а не совместимый со всей экосистемой React runtime.
+Рабочая реализация **0.2.0**: компилятор, ядро, Vite, мигратор и веб-слой с SSR. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Это ограниченная первая версия, а не совместимый со всей экосистемой React runtime.
 
 ```tsx
 import { useState, useEffect } from '@kanso/core';
@@ -25,6 +25,30 @@ export function Counter() {
 
 Компилятор переписывает обращения к состоянию в чтения сигналов. Производное вычисление становится memo, JSX — привязками Solid. Тело `Counter` выполняется при создании экземпляра; клик обновляет зависимые значения и DOM.
 
+## Пользовательские hooks
+
+```tsx
+// hooks/useCounter.ts
+import { useState } from '@kanso/core';
+
+export function useCounter(step = 1) {
+  const [count, setCount] = useState(0);
+  const doubled = count * 2;
+  const increment = () => setCount(value => value + step);
+  return { count, doubled, increment };
+}
+
+// Counter.tsx
+import { useCounter } from './hooks/useCounter';
+
+export function Counter() {
+  const { count, doubled, increment } = useCounter();
+  return <button onClick={increment}>{count} / {doubled}</button>;
+}
+```
+
+Hook и компонент создаются один раз на экземпляр. Возвращаемые значения остаются реактивными через границу модуля; ручные accessor-функции в исходном коде не нужны. Изменяемые аргументы тоже остаются живыми. Hook и его потребители должны собираться одной версией компилятора Kanso.
+
 ## Запуск
 
 Node.js 20.19+ или 22.12+, npm, macOS/Linux. Проверено также в Linux с Node из официального образа Playwright.
@@ -35,7 +59,7 @@ npm run build
 npm run dev
 ```
 
-Лаборатория содержит счётчик, обновляемые props, список с сохранением состояния строк, lifecycle, серверную форму и lazy route.
+Лаборатория содержит счётчик с пользовательским hook из отдельного файла, обновляемые props, список с сохранением состояния строк, lifecycle, серверную форму и lazy route.
 
 Для production SSR:
 
@@ -150,9 +174,9 @@ npm run bench            # production Kanso/Solid/React/memo/React Compiler
 Linux-проверка всех браузеров, в том числе при проблеме запуска Firefox на macOS 27:
 
 ```bash
-docker build -f Dockerfile.test -t kanso-test:0.1.0 .
+docker build -f Dockerfile.test -t kanso-test:0.2.0 .
 mkdir -p output/linux
-docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.1.0
+docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.2.0
 ```
 
 Результаты и скриншоты сохраняются в `output/`. Исходные условия и результаты замеров — в [отчёте](docs/validation.md). CI описан в `.github/workflows/ci.yml`.
@@ -161,6 +185,6 @@ docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kan
 
 Поддерживаются функциональные компоненты, именованные props и rest, keyed JSX map, терминальные return-ветви, перечисленные hooks и собственный веб-слой. Неоднозначные конструкции завершают компиляцию адресной диагностикой.
 
-Автоматический перенос всех пользовательских hooks пока не реализован: возврат состояния обычным value/tuple из `useX` потребовал бы отдельного межмодульного контракта компилятора. Используйте явный accessor или реактивный store; мигратор блокирует неизвестный контракт. Context предназначен для передачи сервисов и реактивных объектов/store.
+Пользовательские `useX` поддерживают живые аргументы и возврат значения, объекта или tuple через отдельные `.ts`/`.js`-модули, именованные импорты и переэкспорты. Мигратор проверяет локальную реализацию до записи; неизвестные внешние hooks требуют порта. Поддержаны именованные параметры, плоская деструктуризация результата и один терминальный return; остальные формы получают диагностику. Context предназначен для передачи сервисов и реактивных объектов/store.
 
 Streaming SSR, RSC, перенос Next.js, React-библиотек и все особенности React event/concurrent runtime не входят в эту версию. HMR обновляет компоненты; сохранение локального состояния при замене их реализации не гарантируется.

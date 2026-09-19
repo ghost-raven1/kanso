@@ -57,4 +57,23 @@ describe('transactional migration', () => {
     expect((await migrate({ root })).changes).toEqual([]);
     await expect(createProject(root)).rejects.toThrow('empty');
   });
+  it('migrates verified custom hooks through a local barrel and named alias', async () => {
+    const root=await fixture(`import{useCount as counter}from'./hooks';export function Counter(){const[n,increment]=counter();return <button onClick={increment}>{n}</button>}`);
+    await writeFile(join(root,'src/hooks.ts'), `export{useCounter as useCount}from'./useCounter';`);
+    await writeFile(join(root,'src/useCounter.ts'), `import{useState}from'react';export function useCounter(){const[n,setN]=useState(0);const increment=()=>setN(value=>value+1);return[n,increment] as const}`);
+    const result=await migrate({root,apply:true,local:process.cwd()});
+    expect(result.diagnostics).toEqual([]);expect(result.applied).toBe(true);
+    expect(await readFile(join(root,'src/useCounter.ts'),'utf8')).toContain('@kanso/core');
+    expect((await migrate({root})).changes).toEqual([]);
+  });
+  it('blocks unverified hooks, namespace calls and repeated custom updates before writes', async () => {
+    const root=await fixture(`import{useCounter}from'./useCounter';export function Counter(){const[n,increment]=useCounter();return <button onClick={()=>{increment();increment()}}>{n}</button>}`);
+    await writeFile(join(root,'src/useCounter.ts'), `import{useState}from'react';export function useCounter(){const[n,setN]=useState(0);return[n,()=>setN(n+1)] as const}`);
+    const before=await readFile(join(root,'package.json'),'utf8');
+    const result=await migrate({root,apply:true});
+    expect(result.applied).toBe(false);expect(result.diagnostics.some(item=>item.code==='STATE_SNAPSHOT')).toBe(true);
+    expect(await readFile(join(root,'package.json'),'utf8')).toBe(before);
+    expect(migrateSource(`import{useForeign as foreign}from'library';export function App(){const[n]=foreign();return <p>{n}</p>}`,'App.tsx').diagnostics.some(item=>item.code==='CUSTOM_HOOK')).toBe(true);
+    expect(migrateSource(`import * as hooks from './hooks';export function App(){const[n]=hooks.useCounter();return <p>{n}</p>}`,'App.tsx').diagnostics.some(item=>item.code==='COMPILER')).toBe(true);
+  });
 });

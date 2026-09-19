@@ -1,12 +1,11 @@
 import { useState, useEffect } from '@kanso/core';
 import { KeyedList } from '../ui/KeyedList';
+import { useCounter } from '../hooks/useCounter';
 
 function Counter({ step = 1 }: { step?: number }) {
   if (typeof window !== 'undefined' && window.kansoMetrics) window.kansoMetrics.counterMounts++;
-  const [count, setCount] = useState(0);
-  const doubled = count * 2;
-  useEffect(() => { document.title = `Kanso · ${count}`; }, [count]);
-  return <div className="counter-area"><div className="readout"><span>COUNT</span><output id="count">{count}</output></div><div className="readout secondary"><span>DERIVED × 2</span><output id="doubled">{doubled}</output></div><button id="increment" className="primary" onClick={() => setCount(value => value + step)}>Increment +{step} <span>↗</span></button></div>;
+  const { count, doubled, increment } = useCounter(step);
+  return <div className="counter-area"><div className="readout"><span>COUNT</span><output id="count">{count}</output></div><div className="readout secondary"><span>DERIVED × 2</span><output id="doubled">{doubled}</output></div><button id="increment" className="primary" onClick={increment}>Increment +{step} <span>↗</span></button></div>;
 }
 
 function Subscription() {

@@ -57,6 +57,12 @@ export default function kanso(options: KansoOptions = {}): PluginOption[] {
       this.emitFile({ type: 'asset', fileName: 'kanso-manifest.json', source: JSON.stringify(assets, null, 2) });
     },
   };
-  return [framework, solid({ ssr: true, extensions: [['.ts', { typescript: true }]], babel: { plugins: [kansoBabelPlugin] } })];
+  return [framework, solid({
+    ssr: true,
+    // Linked packages expose compiled JS too; never compile their hook ABI twice.
+    exclude: [/[/\\]node_modules[/\\]/, /[/\\]dist(?:-server)?[/\\]/],
+    extensions: [['.ts', { typescript: true }], '.js'],
+    babel: { plugins: [kansoBabelPlugin] },
+  })];
 }
 export { kanso };

@@ -16,7 +16,7 @@ export function transformHooks(context: TransformContext): void {
       if (!isSetup(path)) throw path.buildCodeFrameError('KANSO_HOOK_SCOPE: hooks belong in a component or a compiled useX function.');
       const owner = path.getFunctionParent();
       for (let parent = path.parentPath; parent && parent !== owner; parent = parent.parentPath!) {
-        if (parent.isIfStatement() || parent.isConditionalExpression() || parent.isLoop()) throw path.buildCodeFrameError('KANSO_HOOK_ORDER: move conditional hooks into a child component.');
+        if (parent.isIfStatement() || parent.isConditionalExpression() || parent.isLogicalExpression() || parent.isSwitchStatement() || parent.isLoop()) throw path.buildCodeFrameError('KANSO_HOOK_ORDER: move conditional hooks into a child component.');
       }
       path.node.callee = helper(context, names[name]);
       const args = path.node.arguments;
@@ -59,13 +59,4 @@ export function transformDerived(context: TransformContext): void {
       context.reactive.add(newId.name);
     },
   });
-  context.program.traverse({ ReturnStatement(path) {
-    const owner = path.getFunctionParent();
-    const name = owner?.isFunctionDeclaration() ? owner.node.id?.name
-      : owner?.parentPath.isVariableDeclarator() && t.isIdentifier(owner.parentPath.node.id) ? owner.parentPath.node.id.name : '';
-    const value = path.node.argument;
-    if (name && /^use[A-Z]/.test(name) && value && !t.isFunction(value) && hasReactive(value, context)) {
-      throw path.buildCodeFrameError('KANSO_CUSTOM_HOOK_RETURN: a value/tuple return would lose reactivity. Return an explicit accessor or a reactive store; automatic value-shaped custom hook returns are not supported.');
-    }
-  } });
 }

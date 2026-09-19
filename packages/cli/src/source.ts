@@ -9,16 +9,20 @@ const traverse = (traverseModule as unknown as { default: typeof traverseModule 
 const generate = (generatorModule as unknown as { default: typeof generatorModule }).default ?? generatorModule;
 const supported = new Set(['useState', 'useReducer', 'useEffect', 'useMemo', 'useCallback', 'useRef', 'createContext', 'useContext', 'lazy', 'Suspense', 'Fragment', 'ReactNode', 'FC', 'ComponentType', 'PropsWithChildren', 'Dispatch', 'SetStateAction']);
 
-export function migrateSource(source: string, file: string): { code: string; diagnostics: Diagnostic[]; imports: string[] } {
+export function migrateSource(source: string, file: string, approvedHooks: ReadonlySet<string> = new Set()): { code: string; diagnostics: Diagnostic[]; imports: string[] } {
   const ast = parse(source, { sourceType: 'module', plugins: ['typescript', 'jsx'] });
   const diagnostics: Diagnostic[] = [];
   const imports: string[] = [];
   let changed = false;
   const hooks = new Map<string, string>();
+  const reactHooks = new Set<string>();
   const roots = new Set<string>();
   const hydrateNames = new Set<string>();
   const stateNames = new Set<string>();
   const setters = new Set<string>();
+  const customHooks = new Set(approvedHooks);
+  const hookCandidates = new Set<string>();
+  const customObjects = new Set<string>();
   const report = (node: t.Node, code: string, message: string, severity: 'error' | 'warning' = 'error') => {
     diagnostics.push({ file, line: node.loc?.start.line, code, message, severity });
   };
@@ -26,6 +30,11 @@ export function migrateSource(source: string, file: string): { code: string; dia
     ImportDeclaration(path) {
       const from = path.node.source.value;
       imports.push(from);
+      for (const specifier of path.node.specifiers) {
+        const name = t.isImportSpecifier(specifier) && t.isIdentifier(specifier.imported) ? specifier.imported.name : specifier.local.name;
+        if (/^use[A-Z]/.test(name)) hookCandidates.add(specifier.local.name);
+        if (['@kanso/core', '@kanso/app'].includes(from)) hooks.set(specifier.local.name, name);
+      }
       if (from === 'react') {
         changed = true; path.node.source.value = '@kanso/core';
         for (const specifier of path.node.specifiers) {
@@ -33,6 +42,7 @@ export function migrateSource(source: string, file: string): { code: string; dia
             const name = specifier.imported.name;
             if (!supported.has(name)) report(specifier, 'UNSUPPORTED_API', `React.${name} has no automatic migration.`);
             hooks.set(specifier.local.name, name);
+            reactHooks.add(specifier.local.name);
           } else if (t.isImportDefaultSpecifier(specifier) || t.isImportNamespaceSpecifier(specifier)) {
             const binding = path.scope.getBinding(specifier.local.name);
             for (const reference of binding?.referencePaths ?? []) {
@@ -48,7 +58,7 @@ export function migrateSource(source: string, file: string): { code: string; dia
                 if (!supported.has(name)) { report(member.node, 'UNSUPPORTED_API', `React.${name} needs a manual port.`); continue; }
                 const local = path.scope.generateUidIdentifier(name);
                 path.node.specifiers.push(t.importSpecifier(local, t.identifier(name)));
-                hooks.set(local.name, name); member.replaceWith(local);
+                hooks.set(local.name, name); reactHooks.add(local.name); member.replaceWith(local);
               } else if (!reference.findParent(parent => parent.isTSType())) report(reference.node, 'REACT_NAMESPACE', 'Dynamic React namespace access requires a manual port.');
             }
             // Keep type-qualified references such as React.FC valid.
@@ -74,6 +84,11 @@ export function migrateSource(source: string, file: string): { code: string; dia
       }
     },
     ClassDeclaration(path) { if (path.node.superClass) report(path.node, 'CLASS_COMPONENT', 'Class inheritance requires review; component classes must become functions.'); },
+    Function(path) {
+      const name = (path.isFunctionDeclaration() || path.isFunctionExpression()) && path.node.id ? path.node.id.name
+        : path.parentPath.isVariableDeclarator() && t.isIdentifier(path.parentPath.node.id) ? path.parentPath.node.id.name : '';
+      if (/^use[A-Z]/.test(name)) customHooks.add(name);
+    },
     ExportNamedDeclaration(path) { if (path.node.source) imports.push(path.node.source.value); },
     ExportAllDeclaration(path) { imports.push(path.node.source.value); },
     CallExpression(path) {
@@ -87,6 +102,12 @@ export function migrateSource(source: string, file: string): { code: string; dia
     VariableDeclarator(path) {
       if (!t.isCallExpression(path.node.init) || !t.isIdentifier(path.node.init.callee)) return;
       const name = hooks.get(path.node.init.callee.name);
+      if (customHooks.has(path.node.init.callee.name)) {
+        const pattern = path.node.id;
+        if (t.isIdentifier(pattern)) { customObjects.add(pattern.name); stateNames.add(pattern.name); setters.add(pattern.name); }
+        const bindings = t.getBindingIdentifiers(pattern);
+        for (const local of Object.keys(bindings)) { stateNames.add(local); setters.add(local); }
+      }
       if (name === 'useState' || name === 'useReducer') {
         if (t.isArrayPattern(path.node.id)) {
           if (t.isIdentifier(path.node.id.elements[0])) stateNames.add(path.node.id.elements[0].name);
@@ -101,15 +122,15 @@ export function migrateSource(source: string, file: string): { code: string; dia
       const callee = path.node.callee;
       if (t.isIdentifier(callee)) {
         const name = hooks.get(callee.name);
-        if (name === 'useEffect' && !path.node.arguments[1]) report(path.node, 'EFFECT_TRACKING', 'An effect without dependencies becomes auto-tracked. Add an explicit dependency array after review.');
-        if (name === 'useCallback' && t.isArrayExpression(path.node.arguments[1]) && path.node.arguments[1].elements.length === 0) {
+        if (reactHooks.has(callee.name) && name === 'useEffect' && !path.node.arguments[1]) report(path.node, 'EFFECT_TRACKING', 'An effect without dependencies becomes auto-tracked. Add an explicit dependency array after review.');
+        if (reactHooks.has(callee.name) && name === 'useCallback' && t.isArrayExpression(path.node.arguments[1]) && path.node.arguments[1].elements.length === 0) {
           const callback = path.get('arguments')[0];
           callback?.traverse({ ReferencedIdentifier(ref) {
             if (stateNames.has(ref.node.name)) report(ref.node, 'CALLBACK_SNAPSHOT', 'A callback with empty dependencies reads live state after migration; review its snapshot contract.');
           } });
         }
         if (name === 'vitePlugin' && path.node.arguments.length) report(path.node, 'VITE_OPTIONS', 'React plugin options need manual removal or conversion.');
-        if (/^use[A-Z]/.test(callee.name) && !name && changed) report(path.node, 'CUSTOM_HOOK', `Review the reactive return contract of ${callee.name}.`);
+        if ((/^use[A-Z]/.test(callee.name) || hookCandidates.has(callee.name)) && !name && !customHooks.has(callee.name)) report(path.node, 'CUSTOM_HOOK', `Cannot verify the compiled local contract of ${callee.name}.`);
         if (hydrateNames.has(callee.name)) {
           const [container, element] = path.node.arguments;
           if (t.isExpression(container) && t.isExpression(element)) path.node.arguments = [t.arrowFunctionExpression([], element), container];
@@ -126,7 +147,10 @@ export function migrateSource(source: string, file: string): { code: string; dia
       let readsAfterWrite = false;
       path.traverse({
         Function(inner) { inner.skip(); },
-        CallExpression: { exit(call) { if (t.isIdentifier(call.node.callee) && setters.has(call.node.callee.name)) writes++; } },
+        CallExpression: { exit(call) {
+          const callee=call.node.callee;
+          if (t.isIdentifier(callee) && setters.has(callee.name) || t.isMemberExpression(callee) && t.isIdentifier(callee.object) && customObjects.has(callee.object.name)) writes++;
+        } },
         ReferencedIdentifier(ref) { if (writes && stateNames.has(ref.node.name)) readsAfterWrite = true; },
       });
       if (writes > 1 || readsAfterWrite) report(path.node, 'STATE_SNAPSHOT', 'Multiple updates or reads after a setter require review: Kanso reads live state.');

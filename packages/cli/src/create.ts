@@ -6,7 +6,7 @@ export async function createProject(directory: string, local?: string): Promise<
   const root = resolve(directory);
   await mkdir(root, { recursive: true });
   if ((await readdir(root)).length) throw new Error('The destination must be empty.');
-  const version = (name: string) => local ? `file:${resolve(local, 'packages', name)}` : '^0.1.0';
+  const version = (name: string) => local ? `file:${resolve(local, 'packages', name)}` : '^0.2.0';
   const files = {
     'package.json': JSON.stringify({ name: 'kanso-app', version: '0.1.0', private: true, type: 'module', scripts: { dev: 'vite', build: 'vite build', preview: 'vite preview', typecheck: 'tsc --noEmit' }, dependencies: { '@kanso/core': version('core') }, devDependencies: { '@kanso/vite': version('vite'), vite: '^8.3.0', typescript: '^5.9.0' } }, null, 2),
     'index.html': '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>',

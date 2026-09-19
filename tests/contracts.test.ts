@@ -95,7 +95,7 @@ it('initializes reducers lazily and provides reactive objects through context', 
   expect(document.querySelector('output')!.textContent).toBe('next'); expect(app.initializations).toBe(1); dispose();
 });
 
-it('diagnoses conditional hooks and snapshot-shaped custom hook results', () => {
+it('diagnoses conditional hooks and supports value-shaped custom hook results', () => {
   expect(()=>compile("import{useState}from'@kanso/core';function App({show}){if(show){const[n]=useState(0)}return <p/>}")).toThrow('KANSO_HOOK_ORDER');
-  expect(()=>compile("import{useState}from'@kanso/core';function useCounter(){const[n,setN]=useState(0);return [n,setN]}")).toThrow('KANSO_CUSTOM_HOOK_RETURN');
+  expect(compile("import{useState}from'@kanso/core';function useCounter(){const[n,setN]=useState(0);return [n,setN]}").code).toContain('__hookResult');
 });

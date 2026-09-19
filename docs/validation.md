@@ -1,18 +1,18 @@
 # Проверка реализации — 19 сентября 2026
 
-Версия Kanso 0.1.0. Проверки выполнены локально, исходники не публиковались и production-сервер не развёртывался. GitHub Actions workflow создан и проверен actionlint; удалённого CI-запуска ещё не было.
+Версия Kanso 0.2.0. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
 
 ## Подтверждённые результаты
 
-- npm run check: сборка пяти пакетов, TypeScript, **28/28 Vitest**, клиентская и серверная production-сборки, аудит lockfile — успешно.
+- npm run check: сборка пяти пакетов, TypeScript, **36/36 Vitest**, клиентская и серверная production-сборки, аудит lockfile — успешно.
 - В lockfile проверены 217 записей: React, React DOM, reconciler и React Compiler отсутствуют. Маркер server-only implementation отсутствует в клиентских чанках.
-- npm run test:tooling: собственный React+Vite fixture мигрирован, результат идемпотентен; выполнены npm install, TypeScript, production build и HMR. Попытка импортировать .server.ts в браузер блокирует сборку.
+- npm run test:tooling: собственный React+Vite fixture мигрирован, результат идемпотентен; выполнены npm install, TypeScript, production build, HMR компонента и пользовательских hooks из отдельных .ts/.js-файлов. Проверены переэкспорт, alias и вложенный JavaScript-hook. Попытка импортировать .server.ts в браузер блокирует сборку.
 - Chromium и WebKit прошли проверки на macOS. Все три движка прошли тот же production-набор в Linux-контейнере: chromium 153.0.8010.12, firefox 155.0, webkit 26.6.
 - Для каждого браузера проверены: сохранение DOM при hydration; ввод до JavaScript; отсутствие повторного initial loader; точечные обновления; ключи, состояние и фокус; cleanup; validation/action/revalidation; lazy route и direct SSR; mobile overflow; сохранение HTML при недоступном JS.
 
 Firefox на macOS 27 не стартовал через subprocess из-за [известной проблемы Mozilla](https://bugzilla.mozilla.org/show_bug.cgi?id=2060476). Проверка выполнена на настоящем Firefox в официальном Linux-образе Playwright. WebKit означает движок Playwright, а не проверку установленного Safari.
 
-## Production benchmark
+## Production benchmark — исходная версия 0.1.0
 
 Среда: Apple M1 Pro, darwin 27.0.0, Node v20.19.5, Chromium 153.0.8010.12. Solid 1.9.15, React 19.3.0, React Compiler 1.0.0. Запись: 2026-09-19T07:43:25.292Z.
 
@@ -34,4 +34,4 @@ FCP/LCP измерены для этих небольших CSR-эталонов
 
 ## Граница готовности
 
-Доступна работающая версия 0.1 с перечисленными контрактами и проверяемым мигратором. Это не утверждение о полной совместимости произвольного React-кода или всей экосистемы. Ограничения custom hook returns, Context, типов, map callback и управления потоком перечислены в semantics.md и migration.md.
+Доступна работающая версия 0.2 с перечисленными контрактами, пользовательскими hooks и проверяемым мигратором. Это не утверждение о полной совместимости произвольного React-кода или всей экосистемы. Ограничения форм параметров/возврата hooks, Context, типов, map callback и управления потоком перечислены в semantics.md и migration.md.

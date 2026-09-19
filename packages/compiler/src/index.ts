@@ -6,6 +6,7 @@ import { transformHooks, transformDerived } from './state.js';
 import { transformLists, transformJsx } from './jsx.js';
 import type { TransformContext } from './context.js';
 import { transformControlFlow } from './control-flow.js';
+import { transformHookParameters, transformCustomCalls, transformHookArguments, transformHookReturns } from './custom-hooks.js';
 
 /** Runs before Solid JSX lowering; no React runtime or compiler is involved. */
 export function kansoBabelPlugin(): PluginObj {
@@ -15,11 +16,15 @@ export function kansoBabelPlugin(): PluginObj {
       if (!t.isImportDeclaration(statement) || !['@kanso/core', '@kanso/app'].includes(statement.source.value)) continue;
       for (const specifier of statement.specifiers) if (t.isImportSpecifier(specifier) && t.isIdentifier(specifier.imported)) context.imports.set(specifier.local.name, specifier.imported.name);
     }
+    transformHookParameters(context);
+    program.scope.crawl();
     transformProps(context);
     program.scope.crawl();
     transformLists(context);
     program.scope.crawl();
     transformHooks(context);
+    program.scope.crawl();
+    transformCustomCalls(context);
     program.scope.crawl();
     program.traverse({ VariableDeclarator(path) {
       const { id, init } = path.node;
@@ -39,6 +44,8 @@ export function kansoBabelPlugin(): PluginObj {
     transformLocalProps(context);
     program.scope.crawl();
     transformDerived(context);
+    transformHookArguments(context);
+    transformHookReturns(context);
     transformControlFlow(program);
     transformJsx(context);
     if (context.helpers.size) program.unshiftContainer('body', t.importDeclaration(

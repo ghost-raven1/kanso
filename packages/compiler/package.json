@@ -1,5 +1,5 @@
 {
-  "name": "@kanso/compiler", "version": "0.1.0", "type": "module", "files": ["dist"],
+  "name": "@kanso/compiler", "version": "0.2.0", "type": "module", "files": ["dist"],
   "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
   "dependencies": {
     "@babel/core": "^7.28.0", "@babel/types": "^7.28.0", "@babel/preset-typescript": "^7.27.1",

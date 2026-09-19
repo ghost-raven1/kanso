@@ -41,7 +41,9 @@ export function transformProps(context: TransformContext): void {
 export function transformLocalProps(context: TransformContext): void {
   context.program.traverse({ VariableDeclarator(path) {
     const { id, init } = path.node;
-    if (!isSetup(path) || !t.isObjectPattern(id) || !t.isIdentifier(init) || !context.props.has(init.name)) return;
+    const liveValue = t.isCallExpression(init) && t.isIdentifier(init.callee) && context.reactive.has(init.callee.name);
+    if (!isSetup(path) || !t.isObjectPattern(id) || !init || !t.isExpression(init)
+      || !(t.isIdentifier(init) && context.props.has(init.name) || liveValue)) return;
     if (!path.parentPath.isVariableDeclaration({ kind: 'const' })) throw path.buildCodeFrameError('KANSO_PROPS: destructure live props with const.');
     const keys: t.StringLiteral[] = [];
     let rest: t.RestElement | undefined;
@@ -56,6 +58,7 @@ export function transformLocalProps(context: TransformContext): void {
         ? t.conditionalExpression(t.binaryExpression('===', read(), t.identifier('undefined')), t.cloneNode(property.value.right), read()) : read());
     }
     if (rest && t.isIdentifier(rest.argument)) {
+      if (liveValue) throw path.buildCodeFrameError('KANSO_PROPS: destructure named live fields; rest requires a stable props object.');
       path.node.id = t.arrayPattern([null, rest.argument]);
       path.node.init = t.callExpression(helper(context, '__splitProps'), [init, t.arrayExpression(keys)]);
       context.props.add(rest.argument.name);
