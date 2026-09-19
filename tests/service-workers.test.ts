@@ -82,6 +82,35 @@ describe('service worker registration', () => {
     await expect(controller.register()).rejects.toThrow('disposed');
   });
 
+  it.each(['installing', 'activating'])('does not report ready before an initially %s worker finishes activation', async initialState => {
+    const { worker, registration } = browserRegistration();
+    worker.state = initialState;
+    if (initialState === 'installing') {
+      registration.installing = worker as unknown as ServiceWorker;
+      registration.active = null as unknown as ServiceWorker;
+    }
+    const controller = createServiceWorker('/service-worker.js');
+    const states: string[] = [];
+    controller.subscribe(state => states.push(state.status));
+    await controller.register();
+    expect(controller.state.status).toBe(initialState);
+
+    registration.installing = null;
+    registration.active = worker as unknown as ServiceWorker;
+    worker.state = 'activating';
+    worker.dispatchEvent(new Event('statechange'));
+    expect(controller.state.status).toBe('activating');
+    expect(states).not.toContain('ready');
+
+    worker.state = 'activated';
+    worker.dispatchEvent(new Event('statechange'));
+    expect(controller.state.status).toBe('ready');
+    controller.dispose();
+    worker.state = 'redundant';
+    worker.dispatchEvent(new Event('statechange'));
+    expect(controller.state.status).toBe('disposed');
+  });
+
   it('does not attach listeners if disposed while registration is pending', async () => {
     const { container, registration } = browserRegistration();
     let complete!: (registration: unknown) => void;

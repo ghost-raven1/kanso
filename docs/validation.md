@@ -4,12 +4,12 @@
 
 ## Микрофронты и workers 0.6
 
-- Финальный локальный `npm run check` проверяет семь пакетов: сборка, TypeScript, **205/205 Vitest**, production-сборки лаборатории и каталога, форматирование 62 файлов примеров. Аудит 247 записей lockfile не обнаружил React или React DOM.
+- Финальный локальный `npm run check` проверяет семь пакетов: сборка, TypeScript, **207/207 Vitest**, production-сборки лаборатории и каталога, форматирование 62 файлов примеров. Аудит 247 записей lockfile не обнаружил React или React DOM.
 - `npm run test:microfrontends` собирает оболочку и два remote на разных origins. Проверяет SSR/SEO, Context, useId, исходный DOM и ввод, loaders, enhanced/native forms, версии A/B, откат и восстановление загрузки.
 - `npm run test:microfrontends-dev` проверяет SSR development и HMR двух экземпляров: сохранение состояния, новые обработчики, Context, сброс при смене hooks и исправление ошибки компиляции.
 - `npm run test:microfrontends-dx` устанавливает tarball-пакеты в изолированные проекты обоих новых шаблонов. Проверяет TypeScript, клиентскую/серверную сборку, контракты и разделение публичных и приватных файлов.
 - `npm run test:workers` проверяет RPC, concurrent calls, cancellation, transferables, ошибки и terminate в браузерах. `npm run test:service-workers` проверяет явную регистрацию и активацию, версии кеша, offline fallback и исключение приватных данных/форм из кеша.
-- Локальные browser-прогоны выполнены в Chromium и WebKit на macOS. Firefox на этой машине не запускает профиль; результат трёх движков подтверждается отдельным Linux CI для SHA выпуска.
+- Локальные browser-прогоны выполнены в Chromium и WebKit на macOS. Linux-контейнер дополнительно прошёл 11 production-сценариев микрофронтов и development/HMR в Chromium, Firefox и WebKit. Полный CI проверяется отдельно для SHA выпуска.
 - Обычные приложения не включают federation runtime; production/SSR не включают Kanso HMR. React-зависимости миграционных эталонов остаются вне lockfile фреймворка.
 
 ## Веб-приложения 0.5

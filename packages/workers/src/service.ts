@@ -46,17 +46,18 @@ export function createServiceWorker(url: string | URL | undefined, options: Serv
   const refresh = () => {
     if (disposed || !snapshot.registration) return;
     const registration = snapshot.registration;
-    const installing = registration.installing;
-    if (installing && !watching.has(installing)) {
-      watching.add(installing);
-      listen(installing, 'statechange', () => {
-        if (installing.state === 'redundant' && !registration.active) publish('error', new Error('Service worker installation failed.'));
+    for (const worker of [registration.installing, registration.waiting, registration.active]) {
+      if (!worker || watching.has(worker)) continue;
+      watching.add(worker);
+      listen(worker, 'statechange', () => {
+        if (worker.state === 'redundant' && !registration.active) publish('error', new Error('Service worker installation failed.'));
         else refresh();
       });
     }
     if (registration.waiting) publish('update-available');
-    else if (installing) publish('installing');
-    else if (registration.active) publish('ready');
+    else if (registration.installing) publish('installing');
+    else if (registration.active?.state === 'activating') publish('activating');
+    else if (registration.active?.state === 'activated') publish('ready');
   };
   return {
     get state() { return snapshot; },

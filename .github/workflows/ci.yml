@@ -43,5 +43,7 @@ jobs:
             output/workers/results.json
             output/service-workers/results.json
             output/microfrontends-dx/results.json
-            output/microfrontends-dev/results.json
+            output/microfrontends-dev/*.json
+            output/microfrontends-dev/*.html
+            output/microfrontends-dev/*.log
             output/microfrontends/results.json

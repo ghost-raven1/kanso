@@ -28,6 +28,10 @@ describe('transactional migration', () => {
     const root = await fixture(counter);
     const check = await migrate({ root });
     expect(check.diagnostics).toEqual([]); expect(check.changes.length).toBe(5);
+    const plannedPackage = JSON.parse(check.changes.find(change => change.file === 'package.json')!.after);
+    const release = JSON.parse(await readFile(join(process.cwd(), 'packages/cli/package.json'), 'utf8')).version;
+    expect(plannedPackage.dependencies['@kanso/core']).toBe(`^${release}`);
+    expect(plannedPackage.devDependencies['@kanso/vite']).toBe(`^${release}`);
     expect(await readFile(join(root, 'src/Counter.tsx'), 'utf8')).toBe(counter);
     const result = await migrate({ root, apply: true, local: process.cwd() });
     expect(result.applied).toBe(true);

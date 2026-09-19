@@ -89,6 +89,11 @@ notifies new subscribers. Statuses are `disabled`, `unsupported`, `idle`,
 `disposed`. The snapshot includes the native registration when available and
 the registration error on failure.
 
+`ready` means the registration's active worker has reached the browser's
+`activated` state. While `activate` lifecycle work is pending, status remains
+`activating`. This does not imply that an already open document is controlled;
+without `clients.claim()`, control begins on its next navigation.
+
 ```ts
 // Called from the user's explicit “Use update” button.
 serviceWorker.activateUpdate();
