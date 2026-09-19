@@ -85,7 +85,7 @@ node packages/cli/dist/bin.js migrate --apply --root ../my-react-app --local "$P
 
 Применение меняет импорты, поддерживаемые типы, клиентский entry, Vite, TypeScript и package.json. Повторный запуск не создаёт новых изменений. При блокирующей диагностике ни один файл приложения не записывается. Lockfile обновляется последующим `npm install`, затем следует выполнить проверки самого приложения.
 
-Подробнее: [границы миграции](docs/migration.md). MUI, Ant Design, React Router, Next.js и другие React-зависимые библиотеки автоматически не переносятся. BRO PROKAT не мигрировался.
+Подробнее: [границы миграции](docs/migration.md). MUI, Ant Design, React Router, Next.js и другие React-зависимые библиотеки автоматически не переносятся.
 
 ## Веб-приложение
 
