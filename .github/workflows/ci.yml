@@ -33,4 +33,5 @@ jobs:
             output/seo/
             output/hmr/results.json
             output/dx/results.json
-            output/web/
+            output/web/results.json
+            output/web/catalog-mobile.png
