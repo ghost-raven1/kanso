@@ -1,6 +1,6 @@
 {
   "name": "@kanso/app",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "type": "module",
   "sideEffects": false,
   "files": [
@@ -25,10 +25,20 @@
     "./node": {
       "types": "./dist/node.d.ts",
       "default": "./dist-server/node.js"
+    },
+    "./integration": {
+      "types": "./dist/microfrontends.d.ts",
+      "node": "./dist-server/microfrontends.js",
+      "default": "./dist/microfrontends.js"
+    },
+    "./solid-router": {
+      "types": "./dist/router-runtime.d.ts",
+      "node": "./dist-server/router-runtime.js",
+      "default": "./dist/router-runtime.js"
     }
   },
   "dependencies": {
-    "@kanso/core": "0.5.0",
+    "@kanso/core": "0.6.0",
     "solid-js": "1.9.15",
     "@solidjs/router": "0.16.3"
   }

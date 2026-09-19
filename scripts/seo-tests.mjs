@@ -3,7 +3,9 @@ import { createServer } from 'node:http';
 import { mkdir, writeFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
-const server = spawn(process.execPath, ['examples/lab/serve.mjs'], { env: { ...process.env, PORT: '4173' }, stdio: ['ignore', 'pipe', 'pipe'] });
+const port = process.env.KANSO_SEO_PORT ?? '4173';
+const previewOrigin = `http://127.0.0.1:${port}`;
+const server = spawn(process.execPath, ['examples/lab/serve.mjs'], { env: { ...process.env, PORT: port }, stdio: ['ignore', 'pipe', 'pipe'] });
 let logs=''; server.stderr.on('data', chunk=>{logs+=chunk;});
 const fixture=createServer((request,response)=>{
   if(request.url==='/robots.txt'||request.url==='/sitemap.xml'){response.writeHead(404).end();return;}
@@ -18,11 +20,11 @@ const command=(args)=>new Promise((resolve,reject)=>{
 try{
   for(let i=0;;i++){
     if(server.exitCode!==null)throw new Error(`SEO preview failed: ${logs}`);
-    try{if((await fetch('http://127.0.0.1:4173/healthz')).ok)break;}catch{}
+    try{if((await fetch(`${previewOrigin}/healthz`)).ok)break;}catch{}
     if(i>100)throw new Error(`SEO preview timed out: ${logs}`);
     await new Promise(resolve=>setTimeout(resolve,100));
   }
-  const production=await command(['--url','http://127.0.0.1:4173','--json']);
+  const production=await command(['--url',previewOrigin,'--json']);
   assert.equal(production.code,0,production.output+production.errors);
   const report=JSON.parse(production.output);assert.equal(report.truncated,false);assert.equal(report.pages,5);assert.deepEqual(report.diagnostics,[]);
   await new Promise(resolve=>fixture.listen(0,'127.0.0.1',resolve));

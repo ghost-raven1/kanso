@@ -1,0 +1,27 @@
+{
+  "name": "@kanso/workers",
+  "version": "0.6.0",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./worker": {
+      "types": "./dist/worker.d.ts",
+      "default": "./dist/worker.js"
+    },
+    "./service": {
+      "types": "./dist/service.d.ts",
+      "default": "./dist/service.js"
+    },
+    "./service-runtime": {
+      "types": "./dist/service-runtime.d.ts",
+      "default": "./dist/service-runtime.js"
+    }
+  }
+}

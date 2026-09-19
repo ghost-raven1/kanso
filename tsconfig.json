@@ -39,6 +39,27 @@
       ],
       "@kanso/cli": [
         "packages/cli/src/index.ts"
+      ],
+      "@kanso/workers": [
+        "packages/workers/src/index.ts"
+      ],
+      "@kanso/workers/*": [
+        "packages/workers/src/*"
+      ],
+      "@kanso/microfrontends": [
+        "packages/microfrontends/src/index.ts"
+      ],
+      "@kanso/microfrontends/*": [
+        "packages/microfrontends/src/*"
+      ],
+      "@kanso/app/integration": [
+        "packages/app/src/microfrontends.ts"
+      ],
+      "@kanso/microfrontends/transport": [
+        "packages/microfrontends/src/browser.ts"
+      ],
+      "@kanso/app/solid-router": [
+        "packages/app/src/router-runtime.ts"
       ]
     }
   },

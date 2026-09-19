@@ -1,0 +1,11 @@
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  background: #1e342f;
+  color: #c6f4df;
+  border-radius: 1rem;
+}

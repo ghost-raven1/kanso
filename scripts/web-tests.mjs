@@ -7,7 +7,7 @@ import { run, start, stop } from './test-project.mjs';
 
 await mkdir('output/web', { recursive: true });
 const packed = {};
-for (const name of ['core', 'compiler', 'vite', 'app', 'cli']) {
+for (const name of ['core', 'compiler', 'vite', 'app', 'cli', 'microfrontends', 'workers']) {
   const result = JSON.parse(execFileSync('npm', ['pack', '--json', '--pack-destination', resolve('output/web')], { cwd: `packages/${name}`, encoding: 'utf8' }));
   packed[`@kanso/${name}`] = `file:${resolve('output/web', result[0].filename)}`;
 }

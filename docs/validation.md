@@ -1,10 +1,20 @@
 # Проверка реализации — 20 сентября 2026
 
-Версия Kanso 0.5.0. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
+Версия Kanso 0.6.0. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
+
+## Микрофронты и workers 0.6
+
+- Финальный локальный `npm run check` проверяет семь пакетов: сборка, TypeScript, **205/205 Vitest**, production-сборки лаборатории и каталога, форматирование 62 файлов примеров. Аудит 247 записей lockfile не обнаружил React или React DOM.
+- `npm run test:microfrontends` собирает оболочку и два remote на разных origins. Проверяет SSR/SEO, Context, useId, исходный DOM и ввод, loaders, enhanced/native forms, версии A/B, откат и восстановление загрузки.
+- `npm run test:microfrontends-dev` проверяет SSR development и HMR двух экземпляров: сохранение состояния, новые обработчики, Context, сброс при смене hooks и исправление ошибки компиляции.
+- `npm run test:microfrontends-dx` устанавливает tarball-пакеты в изолированные проекты обоих новых шаблонов. Проверяет TypeScript, клиентскую/серверную сборку, контракты и разделение публичных и приватных файлов.
+- `npm run test:workers` проверяет RPC, concurrent calls, cancellation, transferables, ошибки и terminate в браузерах. `npm run test:service-workers` проверяет явную регистрацию и активацию, версии кеша, offline fallback и исключение приватных данных/форм из кеша.
+- Локальные browser-прогоны выполнены в Chromium и WebKit на macOS. Firefox на этой машине не запускает профиль; результат трёх движков подтверждается отдельным Linux CI для SHA выпуска.
+- Обычные приложения не включают federation runtime; production/SSR не включают Kanso HMR. React-зависимости миграционных эталонов остаются вне lockfile фреймворка.
 
 ## Веб-приложения 0.5
 
-- `npm run test:web` упаковывает все пять пакетов, устанавливает их в отдельную копию каталога и выполняет TypeScript и production build без workspace symlinks.
+- `npm run test:web` упаковывает все семь пакетов, устанавливает их в отдельную копию каталога и выполняет TypeScript и production build без workspace symlinks.
 - Chromium и WebKit на macOS прошли каталог с JavaScript, без JavaScript и с задержанной гидратацией: GET-фильтры, история, SEO/JSON-LD, 422, восстановление полей и checkbox, submitter, PRG и отсутствие повторного POST при обновлении подтверждения.
 - Проверены конкурирующие переходы, отклонение устаревших данных, ошибка revalidation с сохранением страницы, повторное обновление и мобильная ширина 390 px. Отчёт: `output/web/results.json`.
 - Упакованный SSR-шаблон проверяется в dev и production: native 422/200, JS validation, сохранённая action при ошибке revalidation и retry без повторного POST. Отчёт: `output/dx/results.json`.
@@ -12,7 +22,7 @@
 - TypeScript проверяет route IDs, вложенные параметры, splats, inferred handlers и результаты без Response. Форматирование примеров и исходников шаблонов проверяется отдельным `check:format`.
 - CI выполняет новые и прежние сценарии в Chromium, Firefox и WebKit. Статус конкретного выпуска подтверждается зелёным запуском для его SHA, а не только локальным результатом. Firefox для 0.5 проверяется в Linux CI; локальные наблюдения macOS ниже не заменяют этот запуск.
 
-## Подтверждённые результаты
+## Исторические результаты до расширения 0.4–0.6
 
 - npm run check: сборка пяти пакетов, TypeScript, **74/74 Vitest**, клиентская и серверная production-сборки, аудит lockfile — успешно.
 - В lockfile проверены 228 записей: React, React DOM, reconciler и React Compiler отсутствуют. Маркеры server-only implementation и Kanso HMR отсутствуют в production-чанках.
@@ -60,4 +70,4 @@ FCP/LCP измерены для этих небольших CSR-эталонов
 
 ## Граница готовности
 
-Доступна версия 0.5 с перечисленными контрактами, HMR, CSR/SSR-шаблонами и проверяемым мигратором. Это не утверждение о полной совместимости произвольного React-кода или всей экосистемы. Ограничения hooks, типов, map callback, управления потоком и границ HMR перечислены в semantics.md, migration.md и dx.md. При обновлении родителя HMR может пересоздать дочернее поддерево; сохранение DOM и фокуса при HMR не гарантируется.
+Доступна версия 0.6 с перечисленными контрактами, HMR, CSR/SSR-шаблонами и проверяемым мигратором. Это не утверждение о полной совместимости произвольного React-кода или всей экосистемы. Ограничения hooks, типов, map callback, управления потоком и границ HMR перечислены в semantics.md, migration.md и dx.md. При обновлении родителя HMR может пересоздать дочернее поддерево; сохранение DOM и фокуса при HMR не гарантируется.

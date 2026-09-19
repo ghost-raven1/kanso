@@ -12,7 +12,7 @@ function Layout({ children }: PropsWithChildren) {
         <Link href="/" class="brand">
           簡素 <span>kanso</span>
         </Link>
-        <span className="version">FRAMEWORK LAB / 0.5</span>
+        <span className="version">FRAMEWORK LAB / 0.6</span>
         <a
           href="https://github.com/solidjs/solid"
           target="_blank"

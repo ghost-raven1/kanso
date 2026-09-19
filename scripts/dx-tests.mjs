@@ -8,7 +8,7 @@ import { run, start, stop, viteArgs } from './test-project.mjs';
 
 await mkdir('output/dx', { recursive: true });
 const packed = {};
-for (const name of ['core', 'compiler', 'vite', 'app', 'cli']) {
+for (const name of ['core', 'compiler', 'vite', 'app', 'cli', 'microfrontends', 'workers']) {
   const data = JSON.parse(execFileSync('npm', ['pack', '--json', '--pack-destination', resolve('output/dx')], { cwd: `packages/${name}`, encoding: 'utf8' }));
   packed[`@kanso/${name}`] = `file:${resolve('output/dx', data[0].filename)}`;
 }

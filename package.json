@@ -1,6 +1,6 @@
 {
   "name": "kanso-workspace",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -29,7 +29,15 @@
     "preview:catalog": "cd examples/catalog && PORT=4175 node scripts/serve.mjs",
     "format:examples": "node scripts/format-examples.mjs --write",
     "check:format": "node scripts/format-examples.mjs",
-    "test:web": "node scripts/web-tests.mjs"
+    "test:web": "node scripts/web-tests.mjs",
+    "test:workers": "node scripts/worker-tests.mjs",
+    "test:service-workers": "node scripts/service-worker-tests.mjs",
+    "test:microfrontends": "node scripts/microfrontends-tests.mjs",
+    "test:microfrontends-dx": "node scripts/microfrontends-dx-tests.mjs",
+    "test:microfrontends-dev": "node scripts/microfrontends-dev-tests.mjs",
+    "build:microfrontends": "node examples/microfrontends/scripts/build.mjs",
+    "dev:microfrontends": "node examples/microfrontends/scripts/dev.mjs",
+    "preview:microfrontends": "node examples/microfrontends/scripts/serve.mjs"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",
@@ -51,6 +59,7 @@
     "typescript": "^5.9.0",
     "vite": "8.3.0",
     "vite-plugin-solid": "2.11.14",
-    "vitest": "4.1.11"
+    "vitest": "4.1.11",
+    "@types/semver": "^7.7.0"
   }
 }

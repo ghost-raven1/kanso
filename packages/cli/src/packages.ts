@@ -1,6 +1,18 @@
 import { readFile, realpath } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+export const KANSO_VERSION = '0.6.0';
+export const KANSO_PACKAGES = ['core', 'compiler', 'vite', 'app', 'cli', 'microfrontends', 'workers'] as const;
+
+/** Resolve all unpublished workspace packages consistently in generated projects. */
+export function kansoPackageVersion(name: string, local?: string): string {
+  return local ? `file:${resolve(local, 'packages', name)}` : `^${KANSO_VERSION}`;
+}
+
+/** Find packaged resources independently of bundled chunk names. */
+export function cliAsset(...segments: string[]): string {
+  return join(dirname(createRequire(import.meta.url).resolve('@kanso/cli')), ...segments);
+}
 export interface PackageManifest {
   name: string;
   version: string;

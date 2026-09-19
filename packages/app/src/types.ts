@@ -1,5 +1,6 @@
 import type { Component, JSX } from 'solid-js';
 import type { TypedRouteHandlers } from './routes.js';
+import type { MicrofrontendDefinition, MicrofrontendSession, RemotePins, RemoteSource } from './microfrontends.js';
 import type { SeoConfig, SeoMetadata, SeoResolver, SeoSnapshot, SitemapEntry, SitemapOptions, RobotsOptions } from './seo/types.js';
 
 export interface Route {
@@ -7,6 +8,10 @@ export interface Route {
   path: string;
   component: Component<{ children?: JSX.Element }>;
   children?: Route[];
+  /** @internal A lazily resolved route group supplied by @kanso/microfrontends. */
+  remote?: { name: string; path: string };
+  /** @internal Transparent mount point; its children own route lifecycles. */
+  remoteMount?: boolean;
   seo?: SeoMetadata | SeoResolver;
   sitemap?: boolean | Omit<SitemapEntry, 'url'>;
   pending?: Component;
@@ -31,9 +36,14 @@ export interface RouteHandlers<C = unknown> {
 export interface Bootstrap {
   version: 1; buildId: string; url: string; data: Record<string, unknown>; seo?: SeoSnapshot;
   action?: { routeId: string; formId: string; result: ActionResult };
+  remotes?: RemotePins;
 }
 export interface RequestHandlerOptions<C = unknown, R extends Route[] = Route[]> {
   routes: R;
+  microfrontends?: readonly MicrofrontendDefinition[];
+  remoteSources?: Record<string, RemoteSource>;
+  /** @internal Prepared for this request, never shared between users. */
+  microfrontendSession?: MicrofrontendSession;
   handlers?: TypedRouteHandlers<R, C> | Record<string, RouteHandlers<C>>;
   context?: (request: Request) => C | Promise<C>;
   buildId: string;

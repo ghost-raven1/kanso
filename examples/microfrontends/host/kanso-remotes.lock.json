@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "remotes": {
+    "catalog": {
+      "buildId": "A",
+      "contract": "1.0.0",
+      "manifest": "http://127.0.0.1:4201/releases/A/kanso-remote.json",
+      "types": "http://127.0.0.1:4201/releases/A/types.json"
+    },
+    "promotion": {
+      "buildId": "A",
+      "contract": "1.0.0",
+      "manifest": "http://127.0.0.1:4202/releases/A/kanso-remote.json",
+      "types": "http://127.0.0.1:4202/releases/A/types.json"
+    }
+  }
+}

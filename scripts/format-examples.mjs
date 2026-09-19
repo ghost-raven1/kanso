@@ -7,7 +7,8 @@ const options = { singleQuote: true, arrowParens: 'avoid', trailingComma: 'all' 
 const files = [];
 async function visit(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
-    if (['dist', 'dist-server', 'node_modules', 'public'].includes(entry.name)) continue;
+    // Downloaded contracts are checked byte-for-byte against the release artifact.
+    if (['dist', 'dist-server', 'node_modules', 'public', 'remote-types'].includes(entry.name)) continue;
     const path = `${directory}/${entry.name}`;
     if (entry.isDirectory()) await visit(path);
     else if (/\.(tsx?|mjs|css|html)$/.test(path)) files.push(path);
@@ -15,6 +16,7 @@ async function visit(directory) {
 }
 await visit('examples/lab');
 await visit('examples/catalog');
+await visit('examples/microfrontends');
 files.push('packages/cli/src/create.ts', 'packages/cli/src/templates/ssr.ts');
 let failed = false;
 for (const filepath of files) {

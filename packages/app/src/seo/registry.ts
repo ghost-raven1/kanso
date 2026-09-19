@@ -1,4 +1,4 @@
-import { createComponent, createContext, createEffect, createSignal, onCleanup, useContext } from 'solid-js';
+import { createComponent, createContext, createEffect, createSignal, onCleanup, onMount, useContext } from 'solid-js';
 import { isServer } from 'solid-js/web';
 import { defineSeo, mergeSeo, resolveSeo } from './resolve.js';
 import type { JsonLdData, SeoConfig, SeoMetadata, SeoProviderProps, SeoSnapshot } from './types.js';
@@ -100,13 +100,21 @@ export function SeoProvider(props: SeoProviderProps & { /** @internal */ registr
 export function Seo(props: SeoMetadata): null {
   const registry = useContext(HeadContext);
   if (!registry) throw new Error('KANSO_SEO_PROVIDER: wrap the application in SeoProvider or configure App.seo.');
-  onCleanup(registry.register({ scope: useContext(SeoScopeContext), kind: 'seo', read: () => ({ ...props }) }));
+  registerOwned(registry, { scope: useContext(SeoScopeContext), kind: 'seo', read: () => ({ ...props }) });
   return null;
 }
 /** Several JSON-LD blocks may coexist when their IDs are distinct. */
 export function JsonLd(props: { id: string; data: JsonLdData }): null {
   const registry = useContext(HeadContext);
   if (!registry) throw new Error('KANSO_SEO_PROVIDER: JsonLd requires SeoProvider.');
-  onCleanup(registry.register({ scope: useContext(SeoScopeContext), kind: 'jsonld', read: () => ({ jsonLd: { [props.id]: props.data } }) }));
+  registerOwned(registry, { scope: useContext(SeoScopeContext), kind: 'jsonld', read: () => ({ jsonLd: { [props.id]: props.data } }) });
   return null;
+}
+
+/** Suspended transition branches must not publish metadata before they commit. */
+function registerOwned(registry: HeadRegistry, entry: Entry): void {
+  if (isServer) { onCleanup(registry.register(entry)); return; }
+  let dispose: (() => void) | undefined;
+  onMount(() => { dispose = registry.register(entry); });
+  onCleanup(() => dispose?.());
 }

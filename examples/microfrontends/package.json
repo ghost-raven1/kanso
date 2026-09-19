@@ -1,0 +1,28 @@
+{
+  "name": "kanso-microfrontend-platform",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": ["host", "catalog", "promotion"],
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs",
+    "preview": "node scripts/serve.mjs",
+    "typecheck": "node scripts/typecheck.mjs"
+  },
+  "dependencies": {
+    "@kanso/core": "0.6.0",
+    "@kanso/app": "0.6.0",
+    "@kanso/microfrontends": "0.6.0",
+    "@kanso/workers": "0.6.0",
+    "solid-js": "1.9.15"
+  },
+  "devDependencies": {
+    "@kanso/compiler": "0.6.0",
+    "@kanso/vite": "0.6.0",
+    "@kanso/cli": "0.6.0",
+    "@types/node": "^20.19.0",
+    "vite": "8.3.0",
+    "typescript": "^5.9.0"
+  }
+}

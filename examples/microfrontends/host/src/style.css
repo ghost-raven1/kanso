@@ -1,0 +1,77 @@
+:root {
+  font-family: Inter, system-ui, sans-serif;
+  color: #172f23;
+  background: #f0f3ed;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  padding: 48px 6vw;
+}
+header,
+main,
+footer,
+.remote-page {
+  max-width: 1180px;
+  margin: auto;
+}
+.eyebrow {
+  font: 600 12px monospace;
+  letter-spacing: 0.15em;
+}
+h1 {
+  font-size: clamp(40px, 6vw, 76px);
+  line-height: 1.03;
+  letter-spacing: -0.055em;
+  margin: 24px 0;
+}
+p {
+  line-height: 1.6;
+}
+nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin: 30px 0;
+}
+a {
+  color: #245a42;
+}
+button,
+input {
+  font: inherit;
+  padding: 12px 18px;
+  border: 1px solid #a3b7a9;
+  border-radius: 8px;
+}
+button {
+  cursor: pointer;
+  background: #fff;
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+footer {
+  padding-top: 32px;
+  color: #557461;
+  font-size: 14px;
+}
+form {
+  display: grid;
+  gap: 16px;
+  max-width: 440px;
+  margin-top: 32px;
+}
+@media (max-width: 640px) {
+  body {
+    padding: 32px 20px;
+  }
+  .cards {
+    grid-template-columns: 1fr;
+  }
+}

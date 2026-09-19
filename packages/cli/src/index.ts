@@ -10,3 +10,5 @@ export type { SeoDiagnostic } from './seo/html.js';
 
 export { doctor, type DoctorReport } from './doctor.js';
 export type { CreateProjectOptions } from './create.js';
+export { checkMicrofrontends, syncMicrofrontends } from './microfrontends.js';
+export type { MicrofrontendsReport, MicrofrontendDiagnostic, RemoteLockEntry } from './microfrontends.js';

@@ -1,0 +1,36 @@
+{
+  "name": "@kanso/microfrontends",
+  "version": "0.6.0",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./manifest": {
+      "types": "./dist/manifest.d.ts",
+      "default": "./dist/manifest.js"
+    },
+    "./transport": {
+      "types": "./dist/browser.d.ts",
+      "node": "./dist/server.js",
+      "default": "./dist/browser.js"
+    }
+  },
+  "dependencies": {
+    "@kanso/app": "0.6.0",
+    "@kanso/core": "0.6.0",
+    "@module-federation/runtime": "2.9.0",
+    "@module-federation/vite": "1.22.1",
+    "semver": "7.7.4",
+    "solid-js": "1.9.15"
+  }
+}

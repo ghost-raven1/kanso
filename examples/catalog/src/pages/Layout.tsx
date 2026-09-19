@@ -8,7 +8,7 @@ export function Layout({ children }: { children?: ReactNode }) {
         <Link href="/" class="brand">
           簡素 <span>Kanso studio</span>
         </Link>
-        <span className="badge">0.5 · WEB DEMO</span>
+        <span className="badge">0.6 · WEB DEMO</span>
       </header>
       <main>{children}</main>
       <footer>

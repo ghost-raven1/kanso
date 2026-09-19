@@ -1,4 +1,4 @@
-export { defineRoutes, matchRoute, routeUrl } from './routes.js';
+export { defineRoutes, matchRoute, routeUrl, useRouteUrl } from './routes.js';
 export type { RouteId, RouteParams, LoaderData, ActionData } from './routes.js';
 export { App } from './router.js';
 export { useLoaderData, useRevalidator, createNavigationLoader } from './data.js';

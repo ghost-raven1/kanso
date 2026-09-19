@@ -1,0 +1,16 @@
+{
+  "remotes": [
+    {
+      "name": "catalog",
+      "manifest": "http://127.0.0.1:4201/kanso-remote.json",
+      "contract": "^1.0.0",
+      "serverManifest": "http://127.0.0.1:4301/releases/{buildId}/kanso-server.json"
+    },
+    {
+      "name": "promotion",
+      "manifest": "http://127.0.0.1:4202/kanso-remote.json",
+      "contract": "^1.0.0",
+      "serverManifest": "http://127.0.0.1:4302/releases/{buildId}/kanso-server.json"
+    }
+  ]
+}

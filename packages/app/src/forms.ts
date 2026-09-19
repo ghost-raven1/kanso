@@ -2,10 +2,13 @@ import { createComponent, createComputed, createSignal, createUniqueId, mergePro
 import { Dynamic, isServer } from 'solid-js/web';
 import { DataContext, RouteIdContext } from './data.js';
 import type { ActionResult, FormValues } from './types.js';
+import { REMOTE_VERSIONS, remoteHeaders, scopedRouteId, useMicrofrontendSession } from './microfrontends.js';
 
 /** Reserved transport fields shared by native forms and enhanced submissions. */
 export const FORM_ROUTE = '__kanso_route';
 export const FORM_ID = '__kanso_form';
+/** @internal Replaced with final request pins after all asynchronous SSR components resolve. */
+export const SSR_REMOTE_PINS = '__KANSO_SSR_REMOTE_PINS__';
 export type FormPhase = 'idle' | 'submitting' | 'revalidating';
 export interface FormState<T = unknown, V extends FormValues = FormValues> {
   readonly id: string;
@@ -28,7 +31,9 @@ export function useForm<T = unknown, V extends FormValues = FormValues>(options:
 /** Submit once, then revalidate. Only explicitly returned values are restored. */
 export function useForm<T = unknown, V extends FormValues = FormValues>(options?: string | FormOptions): FormState<T, V> {
   const generatedId = createUniqueId();
-  const routeId = (typeof options === 'string' ? options : options?.routeId) ?? useContext(RouteIdContext);
+  const explicitId = typeof options === 'string' ? options : options?.routeId;
+  const routeId = explicitId ? scopedRouteId(explicitId) : useContext(RouteIdContext);
+  const session = useMicrofrontendSession();
   const id = typeof options === 'object' ? options.id ?? generatedId : generatedId;
   const context = useContext(DataContext);
   if (!routeId) throw new Error('useForm needs a route id.');
@@ -68,11 +73,12 @@ export function useForm<T = unknown, V extends FormValues = FormValues>(options?
       const current = request = new AbortController();
       body.set(FORM_ROUTE, routeId);
       body.set(FORM_ID, id);
+      if (session) body.set(REMOTE_VERSIONS, JSON.stringify(session.pins()));
       setPhase('submitting'); setErrors({}); setError(undefined); setFormError(undefined);
       try {
         const response = await fetch(`/_kanso/action/${encodeURIComponent(routeId)}`, {
           method: 'POST', body, signal: current.signal,
-          headers: { Accept: 'application/json', 'X-Kanso-Location': window.location.pathname + window.location.search },
+          headers: { Accept: 'application/json', 'X-Kanso-Location': window.location.pathname + window.location.search, ...remoteHeaders(session) },
         });
         if (current !== request) return;
         const redirect = response.headers.get('X-Kanso-Redirect');
@@ -106,6 +112,7 @@ export type FormProps = Omit<JSX.FormHTMLAttributes<HTMLFormElement>, 'action' |
 
 /** A real POST form before hydration; JavaScript enhances the same action contract. */
 export function Form(props: FormProps): JSX.Element {
+  const session = useMicrofrontendSession();
   const [local, attributes] = splitProps(props, ['state', 'children', 'className', 'class', 'onSubmit']);
   return createComponent(Dynamic, mergeProps(attributes, {
     component: 'form', method: 'post',
@@ -121,6 +128,7 @@ export function Form(props: FormProps): JSX.Element {
       return [
         createComponent(Dynamic, { component: 'input', type: 'hidden', name: FORM_ROUTE, get value() { return local.state.routeId; } }),
         createComponent(Dynamic, { component: 'input', type: 'hidden', name: FORM_ID, get value() { return local.state.id; } }),
+        session ? createComponent(Dynamic, { component: 'input', type: 'hidden', name: REMOTE_VERSIONS, get value() { return isServer ? SSR_REMOTE_PINS : JSON.stringify(session.pins()); } }) : null,
         local.children,
       ];
     },

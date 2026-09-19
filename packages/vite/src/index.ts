@@ -2,8 +2,11 @@ import solid from 'vite-plugin-solid';
 import type { Plugin, PluginOption, ResolvedConfig } from 'vite';
 import { kansoBabelPlugin } from '@kanso/compiler';
 import { createHash } from 'node:crypto';
+import { microfrontendPlugins, type MicrofrontendBuildOptions } from './microfrontends.js';
+import { serviceWorkerPlugin, type ServiceWorkerBuildOptions } from './service-worker.js';
+import { remoteContractsPlugin } from './remote-contracts.js';
 
-export interface KansoOptions { buildId?: string; hmr?: 'preserve' | 'remount' | false; routes?: Record<string, string> }
+export interface KansoOptions { buildId?: string; hmr?: 'preserve' | 'remount' | false; routes?: Record<string, string>; microfrontends?: MicrofrontendBuildOptions; serviceWorker?: ServiceWorkerBuildOptions | false }
 export interface AssetManifest {
   version: 1; buildId: string; base: string;
   entries: string[]; styles: string[]; routes: Record<string, { files: string[]; styles: string[] }>;
@@ -14,10 +17,10 @@ export default function kanso(options: KansoOptions = {}): PluginOption[] {
   let config: ResolvedConfig;
   const framework: Plugin = {
     name: 'kanso:boundaries', enforce: 'pre',
-    config: () => ({ resolve: { dedupe: ['solid-js', '@kanso/core', '@solidjs/router'] } }),
+    config: () => ({ ssr: { external: ['@kanso/core', '@kanso/app', '@kanso/microfrontends', ...Object.keys(options.microfrontends?.shared ?? {})] }, resolve: { dedupe: ['solid-js', '@kanso/core', '@kanso/app', '@kanso/microfrontends', '@solidjs/router'] } }),
     configResolved(value) { config = value; },
     resolveId(source, _importer, resolveOptions) {
-      if (!resolveOptions.ssr && ['@kanso/app/server', '@kanso/app/node'].includes(source)) this.error(`KANSO_SERVER_ONLY: ${source} cannot be imported by the client.`);
+      if (!resolveOptions.ssr && ['@kanso/app/server', '@kanso/app/node', '@kanso/microfrontends/server'].includes(source)) this.error(`KANSO_SERVER_ONLY: ${source} cannot be imported by the client.`);
       return null;
     },
     transform(_source, id, transformOptions) {
@@ -57,7 +60,7 @@ export default function kanso(options: KansoOptions = {}): PluginOption[] {
       this.emitFile({ type: 'asset', fileName: 'kanso-manifest.json', source: JSON.stringify(assets, null, 2) });
     },
   };
-  return [framework, solid({
+  return [framework, remoteContractsPlugin(), ...(options.microfrontends ? microfrontendPlugins(options.microfrontends, options.buildId) : []), options.serviceWorker ? serviceWorkerPlugin(options.serviceWorker, options.buildId) : undefined, solid({
     ssr: true, hot: false,
     // Linked packages expose compiled JS too; never compile their hook ABI twice.
     exclude: [/[/\\]node_modules[/\\]/, /[/\\]dist(?:-server)?[/\\]/],

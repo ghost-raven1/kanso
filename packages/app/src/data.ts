@@ -1,6 +1,7 @@
 import { createContext, createResource, createSignal, onCleanup, useContext, type Accessor } from 'solid-js';
 import { isServer } from 'solid-js/web';
 import type { Bootstrap } from './types.js';
+import { remoteHeaders, useMicrofrontendSession, type MicrofrontendSession } from './microfrontends.js';
 
 export interface Revalidator {
   readonly pending: boolean;
@@ -18,7 +19,7 @@ export const DataContext = createContext<RouteData>();
 export const RouteIdContext = createContext<string>();
 
 /** Abort previous work and never publish a response from an obsolete navigation. */
-export function createNavigationLoader(fetcher: typeof fetch = fetch) {
+export function createNavigationLoader(fetcher: typeof fetch = fetch, session?: MicrofrontendSession) {
   let controller: AbortController | undefined;
   let sequence = 0;
   return {
@@ -28,7 +29,7 @@ export function createNavigationLoader(fetcher: typeof fetch = fetch) {
       controller = new AbortController();
       const current = ++sequence;
       const response = await fetcher(`/_kanso/data?url=${encodeURIComponent(url)}`, {
-        signal: controller.signal, headers: { Accept: 'application/json' },
+        signal: controller.signal, headers: { Accept: 'application/json', ...remoteHeaders(session) },
       });
       if (current !== sequence) throw new DOMException('Stale navigation', 'AbortError');
       const redirect = response.headers.get('X-Kanso-Redirect');
@@ -37,15 +38,17 @@ export function createNavigationLoader(fetcher: typeof fetch = fetch) {
       const result = await response.json() as Bootstrap;
       if (current !== sequence) throw new DOMException('Stale navigation', 'AbortError');
       if (result.version !== 1 || result.url !== url || !result.data) throw new Error('Invalid route data snapshot.');
+      session?.adopt(result.remotes);
       return result;
     },
   };
 }
 
 /** Navigation owns suspense; revalidation keeps the last successful page available. */
-export function createRouteData(url: Accessor<string>, initial?: Bootstrap): RouteData {
-  const navigation = createNavigationLoader();
-  const refresh = createNavigationLoader();
+export function createRouteData(url: Accessor<string>, initial?: Bootstrap, prepare?: (url: string) => Promise<void>): RouteData {
+  const session = useMicrofrontendSession();
+  const navigation = createNavigationLoader(fetch, session);
+  const refresh = createNavigationLoader(fetch, session);
   const [pending, setPending] = createSignal(false);
   const [error, setError] = createSignal<Error>();
   let generation = 0;
@@ -56,6 +59,7 @@ export function createRouteData(url: Accessor<string>, initial?: Bootstrap): Rou
     () => {
       const value = url();
       generation++;
+      navigation.cancel();
       refresh.cancel();
       setPending(false);
       setError(undefined);
@@ -67,7 +71,8 @@ export function createRouteData(url: Accessor<string>, initial?: Bootstrap): Rou
         if (initial?.url === value) return initial;
       }
       if (isServer) throw new Error('SSR loader data must be prepared before rendering.');
-      activeNavigation = navigation.load(value);
+      const current = generation;
+      activeNavigation = (async () => { await prepare?.(value); if (disposed || current !== generation) throw new DOMException('Stale navigation', 'AbortError'); return navigation.load(value); })();
       return activeNavigation;
     },
     { initialValue: initial, ssrLoadFrom: 'initial' },

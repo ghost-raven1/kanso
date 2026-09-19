@@ -2,7 +2,7 @@
 
 React-shaped TSX. Solid reactivity. No React runtime.
 
-Рабочая реализация **0.5.0**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Это ограниченная первая версия, а не совместимый со всей экосистемой React runtime.
+Рабочая реализация **0.6.0**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO, микрофронты и необязательные инструменты Web/Service Workers. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Совместимость с React-зависимыми библиотеками не предоставляется.
 
 ```tsx
 import { useState, useEffect } from '@kanso/core';
@@ -49,7 +49,49 @@ export function Counter() {
 
 Hook и компонент создаются один раз на экземпляр. Возвращаемые значения остаются реактивными через границу модуля; ручные accessor-функции в исходном коде не нужны. Изменяемые аргументы тоже остаются живыми. Hook и его потребители должны собираться одной версией компилятора Kanso.
 
-## Веб-приложения в 0.5
+## Микрофронты в 0.6
+
+Отдельно выпущенные Kanso-страницы и виджеты подключаются к общим Router, Context и SEO оболочки. Загрузка использует официальный Module Federation для Vite; SSR, loaders и actions выполняются в сервере оболочки. Runtime-версии проверяются до исполнения модуля, а его выпуск закрепляется для открытого документа.
+
+```tsx
+import { defineRemote } from '@kanso/microfrontends';
+import type { Contract } from './remote-types/catalog';
+
+export const catalog = defineRemote<Contract>({
+  name: 'catalog',
+  manifest: 'https://cdn.example.com/catalog/kanso-remote.json',
+  contract: '^1.0.0',
+});
+
+const ProductCard = catalog.component('ProductCard');
+
+export function Recommendations() {
+  return <ProductCard productId="camera" />;
+}
+```
+
+Передайте `[catalog]` в `App` и `createRequestHandler` через `microfrontends`. Серверные источники задаются отдельно через `remoteSources`. Типы создаёт сборка микрофронта; `kanso microfrontends sync` сохраняет их вместе с проверяемым lockfile. Полная настройка, предварительная загрузка, восстановление гидратации и откат описаны в [руководстве по микрофронтам](docs/microfrontends.md).
+
+```bash
+npm run dev:microfrontends
+# SSR-оболочка: http://127.0.0.1:4177
+# Отдельные каталог и виджет работают со своих origins.
+
+npm run build:microfrontends
+npm run preview:microfrontends
+```
+
+Шаблоны `microfrontends` и `remote` доступны в `kanso create`; команды `sync`, `check` и локальные переопределения описаны в [руководстве CLI](docs/microfrontends-cli.md). Приложения без микрофронтов не подключают federation runtime.
+
+## Web Workers и Service Workers
+
+`@kanso/workers` предоставляет типизированные фоновые задачи через `createWorker()` и `exposeWorker()`: отмену, передачу буферов и явное освобождение ресурсов. Native `new Worker(new URL(..., import.meta.url), { type: 'module' })` сохраняет настройки Vite и браузера. [Работа с Web Workers](docs/workers.md).
+
+`@kanso/workers/service` регистрирует Service Worker по явному вызову и сообщает о доступном обновлении. `service-runtime` задаёт версию кеша, precache, правила статических ресурсов и offline fallback. Активация обновления управляется приложением; автоматической перезагрузки нет. HTML, loaders, actions и приватные ответы не попадают в кеш статических ресурсов. [Настройка Service Worker](docs/service-workers.md).
+
+В демо микрофронтов есть фоновый поиск с прогрессом и отменой, а также панель регистрации и обновления Service Worker.
+
+## Веб-приложения
 
 Типизированные `routeUrl`, `RouteParams`, `LoaderData` и серверный `defineRouteHandlers` связывают маршруты, адреса и handlers. Формы работают в SSR без JavaScript: action возвращает ошибки и явно выбранные значения, а `redirect()` поддерживает POST/Redirect/GET. После клиентской отправки `pending` охватывает обновление loaders; `useRevalidator()` позволяет повторить только загрузку, сохранив уже выполненную запись.
 
@@ -117,6 +159,8 @@ npm run preview
 | `@kanso/vite` | Компиляция `.tsx`/`.jsx`/`.ts`, HMR, source maps, манифест и граница серверных модулей |
 | `@kanso/app` | Solid Router, загрузка данных, actions, формы, буферизованный SSR, кеш и Node adapter |
 | `@kanso/cli` | Создание проекта, проверка и атомарное применение поддерживаемой миграции |
+| `@kanso/microfrontends` | Удалённые компоненты и маршруты, проверка контрактов, закрепление выпусков и подготовка гидратации |
+| `@kanso/workers` | Типизированные Web Workers, управление Service Worker и настройка кеширования |
 
 React, React DOM и React Compiler отсутствуют в workspace lockfile. Внешние эталоны benchmark устанавливаются отдельно в игнорируемую `output/benchmark/external-react`.
 
@@ -207,6 +251,12 @@ npm run test:seo          # production HTML, sitemap и exit codes диагно�
 npm run test:tooling      # настоящая миграция, npm install, build, HMR, server-only boundary
 npm run test:hmr          # состояние, refs, IDs, cleanup, Context, reset и ошибки HMR
 npm run test:dx           # три приложения до/после миграции, tarballs, doctor, CSR/SSR
+npm run test:web          # типы маршрутов, native/enhanced формы и каталог
+npm run test:workers      # packed Web Worker: отмена, перенос буферов, cleanup
+npm run test:service-workers # регистрация, обновления и versioned cache
+npm run test:microfrontends-dx # packed шаблоны, SSR и разделение артефактов
+npm run test:microfrontends-dev # SSR development, remote HMR и сброс границ
+npm run test:microfrontends # независимые сборки, SSR, версии и браузерные переходы
 npm run bench            # production Kanso/Solid/React/memo/React Compiler
 ```
 
@@ -215,9 +265,9 @@ npm run bench            # production Kanso/Solid/React/memo/React Compiler
 Linux-проверка всех браузеров, в том числе при проблеме запуска Firefox на macOS 27:
 
 ```bash
-docker build -f Dockerfile.test -t kanso-test:0.5.0 .
+docker build -f Dockerfile.test -t kanso-test:0.6.0 .
 mkdir -p output/linux
-docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.5.0
+docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.6.0
 ```
 
 Результаты и скриншоты сохраняются в `output/`. Исходные условия и результаты замеров — в [отчёте](docs/validation.md). CI описан в `.github/workflows/ci.yml`.

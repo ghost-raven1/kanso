@@ -1,4 +1,7 @@
 import type { Route, LoaderArgs, ActionResult } from './types.js';
+import { useContext } from 'solid-js';
+import { useParams } from '@solidjs/router';
+import { RouteScopeContext } from './microfrontends.js';
 
 type Entries<R extends Route[], Prefix extends string = ''> = R[number] extends infer Item
   ? Item extends Route
@@ -59,6 +62,17 @@ export function routeUrl<R extends Route[], const Id extends RouteId<NoInfer<R>>
   }).join('/');
   const search = query?.toString();
   return path + (search ? `?${search}` : '');
+}
+
+/** Route-aware links retain their types when a section is mounted under a host prefix. */
+export function useRouteUrl<R extends Route[]>(routes: R) {
+  const scope = useContext(RouteScopeContext);
+  const inherited = scope ? useParams() : undefined;
+  return <const Id extends RouteId<R>>(id: Id, params: RouteParams<R, Id>, query?: URLSearchParams): string => {
+    const path = routeUrl(routes, id, params, query);
+    const prefix = scope?.prefix.replace(/:([^/]+)/g, (_segment, name: string) => encodeURIComponent(inherited?.[name] ?? ''));
+    return prefix ? prefix.replace(/\/$/, '') + path : path;
+  };
 }
 
 export interface RouteMatch { route: Route; ancestors: Route[]; params: Record<string, string> }
