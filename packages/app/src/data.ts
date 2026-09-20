@@ -54,12 +54,14 @@ export function createRouteData(url: Accessor<string>, initial?: Bootstrap, prep
   const [error, setError] = createSignal<Error>();
   let generation = 0;
   let navigationVersion = 0;
+  let activeUrl = initial?.url ?? '';
   let disposed = false;
   let first = true;
   let activeNavigation: Promise<Bootstrap> | undefined;
   const [snapshot, { mutate }] = createResource(
     () => {
       const value = url();
+      activeUrl = value;
       generation++;
       navigationVersion++;
       navigation.cancel();
@@ -74,11 +76,10 @@ export function createRouteData(url: Accessor<string>, initial?: Bootstrap, prep
         if (initial?.url === value) return initial;
       }
       if (isServer) throw new Error('SSR loader data must be prepared before rendering.');
-      const current = generation;
       const intent = navigationVersion;
       activeNavigation = (async () => {
         await prepare?.(value);
-        if (disposed || current !== generation) throw new DOMException('Stale navigation', 'AbortError');
+        if (disposed || intent !== navigationVersion) throw new DOMException('Stale navigation', 'AbortError');
         const next = await navigation.load(value);
         // During a Solid transition url() outside its owner still exposes the committed URL.
         if (disposed || intent !== navigationVersion) throw new DOMException('Stale navigation', 'AbortError');
@@ -96,14 +97,15 @@ export function createRouteData(url: Accessor<string>, initial?: Bootstrap, prep
     async revalidate() {
       if (isServer || disposed) return;
       const current = ++generation;
-      const target = url();
+      // The committed router URL may still describe the page being left.
+      const target = activeUrl;
       setPending(true);
       setError(undefined);
       try {
         await activeNavigation;
-        if (disposed || current !== generation || target !== url()) return;
+        if (disposed || current !== generation || target !== activeUrl) return;
         const next = await refresh.load(target);
-        if (!disposed && current === generation && target === url()) {
+        if (!disposed && current === generation && target === activeUrl) {
           if (next.services) services?.restore(next.services);
           mutate(next);
         }

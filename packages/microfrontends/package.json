@@ -1,6 +1,6 @@
 {
   "name": "@kanso/microfrontends",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "type": "module",
   "sideEffects": false,
   "files": [
@@ -26,8 +26,8 @@
     }
   },
   "dependencies": {
-    "@kanso/app": "0.7.0",
-    "@kanso/core": "0.7.0",
+    "@kanso/app": "0.7.1",
+    "@kanso/core": "0.7.1",
     "@module-federation/runtime": "2.9.0",
     "@module-federation/vite": "1.22.1",
     "semver": "7.7.4",

@@ -11,16 +11,16 @@
     "typecheck": "node scripts/typecheck.mjs"
   },
   "dependencies": {
-    "@kanso/core": "0.7.0",
-    "@kanso/app": "0.7.0",
-    "@kanso/microfrontends": "0.7.0",
-    "@kanso/workers": "0.7.0",
+    "@kanso/core": "0.7.1",
+    "@kanso/app": "0.7.1",
+    "@kanso/microfrontends": "0.7.1",
+    "@kanso/workers": "0.7.1",
     "solid-js": "1.9.15"
   },
   "devDependencies": {
-    "@kanso/compiler": "0.7.0",
-    "@kanso/vite": "0.7.0",
-    "@kanso/cli": "0.7.0",
+    "@kanso/compiler": "0.7.1",
+    "@kanso/vite": "0.7.1",
+    "@kanso/cli": "0.7.1",
     "@types/node": "^20.19.0",
     "vite": "8.3.0",
     "typescript": "^5.9.0"

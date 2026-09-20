@@ -194,6 +194,50 @@ try {
         1,
         'navigation restores the existing instance',
       );
+      // Revalidation while a transition is waiting must target the destination URL.
+      const overlapping = [];
+      let resumeNavigation;
+      let reachedNavigation;
+      const navigationGate = new Promise(resolve => {
+        resumeNavigation = resolve;
+      });
+      const navigationReached = new Promise(resolve => {
+        reachedNavigation = resolve;
+      });
+      let held = false;
+      await page.route('**/_kanso/data?*', async route => {
+        const url = new URL(route.request().url()).searchParams.get('url');
+        overlapping.push(url);
+        if (url === '/one' && !held) {
+          held = true;
+          reachedNavigation();
+          await navigationGate;
+        }
+        await route.continue();
+      });
+      await page.getByRole('link', { name: 'One', exact: true }).click();
+      await navigationReached;
+      await page.locator('#refresh').click();
+      assert.equal(
+        await page.locator('#refresh-status').textContent(),
+        'pending',
+      );
+      resumeNavigation();
+      await page.waitForFunction(
+        () => document.querySelector('#refresh-status')?.textContent === 'idle',
+      );
+      assert.deepEqual(
+        overlapping,
+        ['/one', '/one'],
+        'refresh must not fetch the page being left',
+      );
+      assert.equal(await page.locator('#name').textContent(), 'one');
+      assert.equal(await page.locator('#refresh-error').textContent(), '');
+      await page.unroute('**/_kanso/data?*');
+      await page.getByRole('link', { name: 'Two', exact: true }).click();
+      await page.waitForFunction(
+        () => document.querySelector('#name')?.textContent === 'two',
+      );
       let releaseOld;
       let intercepted;
       const oldGate = new Promise(resolve => {
@@ -252,6 +296,7 @@ try {
         browser: name,
         passed: true,
         packed: true,
+        overlappingRevalidation: true,
         zustand: '5.0.15',
       });
       console.log(

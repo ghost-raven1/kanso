@@ -82,6 +82,10 @@ export function Page() {
       <button id="refresh" onClick={() => void refresh.revalidate()}>
         Refresh
       </button>
+      <output id="refresh-status">
+        {refresh.pending ? 'pending' : 'idle'}
+      </output>
+      <output id="refresh-error">{refresh.error?.message}</output>
       <Link href="/one">One</Link>
       <Link href="/two">Two</Link>
       <Link href="/slow">Slow</Link>

@@ -2,7 +2,7 @@
 
 React-shaped TSX. Solid reactivity. No React runtime.
 
-Рабочая реализация **0.7.0**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO, микрофронты, внешние stores и сервисы на приложение/SSR-запрос, необязательные инструменты Web/Service Workers. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Совместимость с React-зависимыми библиотеками не предоставляется.
+Рабочая реализация **0.7.1**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO, микрофронты, внешние stores и сервисы на приложение/SSR-запрос, необязательные инструменты Web/Service Workers. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Совместимость с React-зависимыми библиотеками не предоставляется.
 
 ```tsx
 import { useState, useEffect } from '@kanso/core';
@@ -271,9 +271,9 @@ npm run bench            # production Kanso/Solid/React/memo/React Compiler
 Linux-проверка всех браузеров, в том числе при проблеме запуска Firefox на macOS 27:
 
 ```bash
-docker build -f Dockerfile.test -t kanso-test:0.7.0 .
+docker build -f Dockerfile.test -t kanso-test:0.7.1 .
 mkdir -p output/linux
-docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.7.0
+docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.7.1
 ```
 
 Результаты и скриншоты сохраняются в `output/`. Исходные условия и результаты замеров — в [отчёте](docs/validation.md). CI описан в `.github/workflows/ci.yml`.
@@ -285,3 +285,14 @@ docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kan
 Пользовательские `useX` поддерживают живые аргументы и возврат значения, объекта или tuple через отдельные `.ts`/`.js`-модули, именованные импорты и переэкспорты. Мигратор проверяет локальную реализацию до записи; неизвестные внешние hooks требуют порта. Поддержаны вложенные параметры и результаты, defaults, object/array rest и один терминальный return. Variadic-параметры и вычисляемые ключи диагностируются. Context обновляет потребителей при изменении Provider.value.
 
 Streaming SSR, RSC, перенос Next.js, React-библиотек и все особенности React event/concurrent runtime не входят в эту версию. HMR сохраняет состояние совместимых границ; при изменении структуры hooks выполняется сброс. DOM и фокус внутри заменяемого компонента могут пересоздаваться.
+
+### Если локальный адрес показывает другое приложение
+
+Service Worker привязан к origin и может пережить смену проекта на том же порту. Проверяйте preview в обычном браузере, а не только в чистом тестовом профиле. Для независимого адреса лаборатории:
+
+```bash
+VITE_SITE_URL=http://127.0.0.1:4180 npm run build:example
+PORT=4180 npm run preview
+```
+
+Откройте `http://127.0.0.1:4180/`. Предварительно проверьте, что порт свободен. Данные и регистрации других приложений автоматически не удаляются.
