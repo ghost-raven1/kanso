@@ -9,14 +9,14 @@ async function writeFile(file, source) {
   const temporary = file + '.next';
   await write(temporary, source);
   await rename(temporary, file);
+  // Vite's Linux watcher suppresses repeated changes to the same file for 50 ms.
+  // This also applies to fixture resets between browsers, not only acknowledged HMR updates.
+  await new Promise(resolve => setTimeout(resolve, 60));
 }
 async function updateFile(page, file, source) {
   const settled = page.waitForEvent('console', { predicate: message => message.text().includes('[vite] hot updated: /src/App.tsx') });
   await writeFile(file, source);
   await settled;
-  // Vite's watcher suppresses repeated change events for 50 ms on Linux.
-  // Space simulated editor saves after acknowledgement, without weakening DOM assertions.
-  await new Promise(resolve => setTimeout(resolve, 60));
 }
 await mkdir('output/hmr', { recursive: true });
 const root = await mkdtemp(resolve('output/hmr/project-'));
@@ -154,15 +154,25 @@ try {
       if (!(process.env.KANSO_BROWSERS ?? 'chromium,firefox,webkit').split(',').includes(name)) continue;
       await writeFile(join(root, 'src/App.tsx'), source);
       const browser = await engine.launch();
+      const messages = [];
+      const page = await browser.newPage();
       try {
-        const page = await browser.newPage();
+        page.on('console', message => messages.push(message.text()));
+        page.on('pageerror', error => messages.push(error.stack ?? error.message));
+        const connected = page.waitForEvent('console', { predicate: message => message.text().includes('[vite] connected.') });
         await page.goto('http://127.0.0.1:4182');
-        await page.getByRole('button').click();
+        await connected;
+        await page.getByRole('button', { name: 'Before: 0', exact: true }).click();
+        assert.equal(await page.getByRole('button').textContent(), 'Before: 1');
         await page.evaluate(() => { window.beforeUpdate = true; });
         await writeFile(join(root, 'src/App.tsx'), source.replace('Before:', 'After:'));
         await page.waitForFunction(() => document.querySelector('button')?.textContent === 'After: 0');
         assert.equal(await page.evaluate(() => window.beforeUpdate === true), mode === 'remount');
         results.push({ browser: name, mode, reset: true, pageReload: mode === false });
+        console.log(`HMR mode ${mode} passed: ${name}`);
+      } catch (error) {
+        console.error('HMR mode failure:', { name, mode, messages: messages.slice(-25), server: server.logs().slice(-1500), html: (await page.content()).slice(-4000) });
+        throw error;
       } finally { await browser.close(); }
     }
     await stop(server); server = undefined;
