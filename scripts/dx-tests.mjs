@@ -1,5 +1,6 @@
 import { mkdir, mkdtemp, readFile, writeFile, cp } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { chromium, firefox, webkit } from 'playwright';
@@ -15,7 +16,12 @@ for (const name of ['core', 'compiler', 'vite', 'app', 'cli', 'microfrontends', 
 const browsers = (process.env.KANSO_BROWSERS ?? 'chromium,firefox,webkit').split(',');
 const engines = { chromium, firefox, webkit };
 const results = [];
-const install = root => run(root, 'npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--workspaces=false']);
+const install = (root, testTooling = false) => run(root, 'npm', [
+  // npm 10.9.8 on Node 22 crashes resolving Vitest's peer graph (edgesOut).
+  // Use a pinned installer for this fixture; preserve all peer checks and the global npm.
+  ...(testTooling ? ['exec', '--yes', '--package=npm@11.12.1', '--', 'npm'] : []),
+  'install', '--ignore-scripts', '--no-audit', '--no-fund', '--workspaces=false',
+]);
 async function usePacked(root) {
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
   pkg.devDependencies = { ...pkg.devDependencies, ...packed };
@@ -48,7 +54,7 @@ async function scenario(page, kind) {
 let server;
 try {
   for (const kind of process.env.KANSO_DX_TEMPLATES_ONLY ? [] : ['profile', 'catalog', 'hooks']) {
-    const root = await mkdtemp(resolve(`output/dx/${kind}-`));
+    const root = await mkdtemp(join(tmpdir(), `kanso-dx-${kind}-`));
     await createProject(root, process.cwd()); await cp(`tests/fixtures/migration/${kind}/src`, join(root, 'src'), { recursive: true });
     const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
     pkg.dependencies = { react: '^19.3.0', 'react-dom': '^19.3.0' };
@@ -84,7 +90,7 @@ try {
     console.log(`DX migration passed: ${kind}`);
   }
   for (const template of ['csr', 'ssr']) {
-    const root = await mkdtemp(resolve(`output/dx/starter-${template}-`));
+    const root = await mkdtemp(join(tmpdir(), `kanso-dx-starter-${template}-`));
     await createProject(root, undefined, { template }); await usePacked(root);
     if (template === 'csr') {
       const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
@@ -93,7 +99,7 @@ try {
       await cp('tests/fixtures/testing/Counter.test.tsx', join(root, 'src/Counter.test.tsx'));
       await cp('tests/fixtures/testing/vitest.config.ts', join(root, 'vitest.config.ts'));
     }
-    install(root);
+    install(root, template === 'csr');
     if (template === 'csr') {
       run(root, process.execPath, ['node_modules/vitest/vitest.mjs', 'run']);
       results.push({ template, packedTesting: true, portal: true, reactiveProps: true, routerServices: true });

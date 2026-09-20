@@ -25,6 +25,17 @@ HMR и сборка серверного JSX здесь отключены. Ко
 использовать обычный `kanso()`; SSR проверяется отдельно в Node/браузерных сценариях.
 Проверенный набор: Vitest 4.1.11, jsdom 26.1.0, Testing Library DOM 10.4.1.
 
+Для чистой установки этого набора с Node 22 используйте npm 11.12.1.
+На Node 22.23.2/npm 10.9.8 воспроизведён внутренний сбой `edgesOut` при
+разрешении peer dependencies Vitest, до запуска кода Kanso. Можно использовать
+отдельный installer без изменения глобального npm:
+
+```sh
+npm exec --yes --package=npm@11.12.1 -- npm install -D vitest@4.1.11 jsdom@26.1.0 @testing-library/dom@10.4.1
+```
+
+Peer-проверки сохраняются; `--force` и `--legacy-peer-deps` не нужны.
+
 ```tsx
 import { afterEach, expect, it } from 'vitest';
 import { fireEvent, within } from '@testing-library/dom';
