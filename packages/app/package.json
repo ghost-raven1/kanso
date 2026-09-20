@@ -1,6 +1,6 @@
 {
   "name": "@kanso/app",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "type": "module",
   "sideEffects": false,
   "files": [
@@ -38,7 +38,7 @@
     }
   },
   "dependencies": {
-    "@kanso/core": "0.8.0",
+    "@kanso/core": "0.8.1",
     "solid-js": "1.9.15",
     "@solidjs/router": "0.16.3"
   }

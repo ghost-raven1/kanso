@@ -16,10 +16,11 @@
 | `UNSUPPORTED_API` / `REACT_DOM` | Убрать/портировать API вне публичного контракта |
 | `CLASS_COMPONENT` | Переписать наследника React Component/PureComponent в функцию; обычные классы разрешены |
 | `STATE_SNAPSHOT` | Проверить повторные записи одного состояния и чтения этого состояния после setter |
+| `STATE_TUPLE_PORT` | Деструктурировать state и setter для анализа снимков; прямые возвраты tuple из локального hook поддерживаются |
 | `ASYNC_SNAPSHOT` / `CALLBACK_SNAPSHOT` | Зафиксировать нужный снимок локальной переменной либо принять live reads |
 | `EFFECT_TRACKING` | Явно выбрать deps вместо React-эффекта после каждого render |
 | `CUSTOM_HOOK` | Дать статически доступную локальную реализацию или портировать внешний hook |
-| `KANSO_HOOK_*` | Использовать статические patterns/imports, const-результат и один терминальный return |
+| `KANSO_HOOK_*` | Использовать статические patterns/imports, const-результат или прямой терминальный return; hooks внутри составных выражений вынести в setup |
 | `PATH_ALIAS` / `DYNAMIC_IMPORT` | Использовать tsconfig paths или статические resolve.alias; computed imports требуют ручного порта |
 | `KANSO_PURITY` | Явно оформить чистое вычисление через useMemo либо действие через useEffect |
 | `KANSO_LIST_KEY` / `KANSO_LIST_BODY` | Дать стабильный key, вынести setup строки в компонент |
@@ -57,6 +58,14 @@ Default/named переэкспорты конфигурации и импорт�
 Изменения независимых состояний больше не считаются конфликтом snapshot-семантики. Повторные записи одного состояния, чтения после его setter и отложенные чтения по-прежнему требуют явной проверки. Мигратор не угадывает намерение автора.
 
 Дальнейшие возможности и критерии их приёмки перечислены в [плане подготовки миграции](migration-readiness.md).
+
+## Результаты hooks и события в 0.8.1
+
+Прямые возвраты hooks (`return useContext(Settings).theme`, `return useMemo(...)`, `return useCounter()`) и деструктуризация `useMemo` переносятся без ручных промежуточных переменных. Вложенная деструктуризация состояния также поддерживается. [Точные границы выражений](semantics.md#результаты-hooks-в-081) сохраняют проверку условных hooks и порядка вычислений; мигратор не переставляет пользовательские действия.
+
+Snapshot-проверки учитывают все поля вложенного состояния и производные const/memo-значения. `setUser(next); console.log(name)` требует проверки даже при `const [{ name }, setUser] = useState(...)`. Для сохранения прежнего значения используйте локальный snapshot внутри обработчика до setter. Компилятор поддерживает целый tuple в переменной, но автоматический перенос `const pair = useState(...)` пока требует явной деструктуризации: мигратор не угадывает произвольные aliases setter.
+
+Добавлены native `DragEvent`, `WheelEvent` и `*EventHandler` для Change, Form, Mouse, Keyboard, Focus, Pointer, Touch, Clipboard, Drag и Wheel. Типы сохраняют конкретный `currentTarget`; обработчик кнопки нельзя назначить обработчиком input. `SyntheticEvent` не добавляется. Использование `persist()`, `nativeEvent`, `isPropagationStopped()` и других synthetic members блокируется также в функциях с аннотацией `MouseEventHandler` или её import alias. Для сложных локальных type aliases и потоков данных требуется отдельная TypeScript-проверка после переноса.
 
 ## Изменения 0.4
 

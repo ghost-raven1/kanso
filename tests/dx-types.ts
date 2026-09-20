@@ -26,3 +26,17 @@ const synthetic = (event: ChangeEvent<HTMLInputElement>) => event.persist();
 // @ts-expect-error A component ref must match the forwarded element.
 const wrongField: ComponentProps<typeof Field> = { label: 'Bad', ref: { current: document.createElement('textarea') } };
 void [callbackRef, fieldProps, change, keydown, synthetic, wrongField];
+
+import type { DragEvent, WheelEvent, MouseEventHandler, DragEventHandler, WheelEventHandler } from '@kanso/core';
+const drag: DragEventHandler<HTMLDivElement> = event => { event.dataTransfer?.getData('text/plain'); event.currentTarget.focus(); };
+const wheel: WheelEventHandler<HTMLInputElement> = event => { event.currentTarget.value = String(event.deltaY); };
+const click: MouseEventHandler<HTMLButtonElement> = event => { event.currentTarget.disabled = true; };
+const buttonProps: ComponentProps<'button'> = { onClick: click };
+const wheelProps: ComponentProps<'input'> = { onWheel: wheel };
+// @ts-expect-error Native drag events do not expose React's nativeEvent wrapper.
+const wrappedDrag = (event: DragEvent<HTMLDivElement>) => event.nativeEvent;
+// @ts-expect-error Native wheel events do not expose SyntheticEvent.persist().
+const persistentWheel = (event: WheelEvent<HTMLInputElement>) => event.persist();
+// @ts-expect-error Handler currentTarget must match the destination element.
+const wrongHandler: MouseEventHandler<HTMLInputElement> = click;
+void [drag, buttonProps, wheelProps, wrappedDrag, persistentWheel, wrongHandler];

@@ -7,12 +7,13 @@ import { TraceMap, originalPositionFor } from '@jridgewell/trace-mapping';
 import { compile } from '@kanso/compiler';
 import type { Scope } from '@babel/traverse';
 import type { Diagnostic } from './types.js';
-import { auditNativeEvents } from './native-events.js';
+import { auditNativeEvents, nativeEventTypes } from './native-events.js';
 import { extendsReactComponent } from './react-classes.js';
+import { derivedStateSources } from './derived-state.js';
 
 const traverse = (traverseModule as unknown as { default: typeof traverseModule }).default ?? traverseModule;
 const generate = (generatorModule as unknown as { default: typeof generatorModule }).default ?? generatorModule;
-const supported = new Set(['useState', 'useReducer', 'useEffect', 'useLayoutEffect', 'useImperativeHandle', 'forwardRef', 'useMemo', 'useCallback', 'useRef', 'useId', 'createContext', 'useContext', 'lazy', 'Suspense', 'Fragment', 'ReactNode', 'FC', 'ComponentType', 'PropsWithChildren', 'Dispatch', 'SetStateAction', 'ComponentProps', 'CSSProperties', 'RefObject', 'Ref', 'MutableRefObject', 'ForwardedRef', 'RefCallback', 'ChangeEvent', 'FormEvent', 'MouseEvent', 'KeyboardEvent', 'FocusEvent', 'PointerEvent', 'TouchEvent', 'ClipboardEvent']);
+const supported = new Set(['useState', 'useReducer', 'useEffect', 'useLayoutEffect', 'useImperativeHandle', 'forwardRef', 'useMemo', 'useCallback', 'useRef', 'useId', 'createContext', 'useContext', 'lazy', 'Suspense', 'Fragment', 'ReactNode', 'FC', 'ComponentType', 'PropsWithChildren', 'Dispatch', 'SetStateAction', 'ComponentProps', 'CSSProperties', 'RefObject', 'Ref', 'MutableRefObject', 'ForwardedRef', 'RefCallback', ...nativeEventTypes]);
 
 export function migrateSource(source: string, file: string, approvedHooks: ReadonlySet<string> = new Set(), options: { configuration?: boolean } = {}): { code: string; diagnostics: Diagnostic[]; imports: string[] } {
   const ast = parse(source, { sourceType: 'module', plugins: ['typescript', 'jsx'] });
@@ -25,7 +26,7 @@ export function migrateSource(source: string, file: string, approvedHooks: Reado
   const hydrateNames = new Set<t.Identifier>();
   const stateNames = new Set<t.Identifier>();
   const setters = new Set<t.Identifier>();
-  const setterStates = new Map<t.Identifier, t.Identifier>();
+  const setterStates = new Map<t.Identifier, t.Identifier[]>();
   const customHooks = new Set<t.Identifier>();
   const binding = (scope: Scope, name: string) => scope.getBinding(name)?.identifier;
   const checkReactEdge = (node: t.Node, value: t.Node | null | undefined) => {
@@ -143,15 +144,16 @@ export function migrateSource(source: string, file: string, approvedHooks: Reado
       }
       if (name === 'useState' || name === 'useReducer') {
         if (t.isArrayPattern(path.node.id)) {
-          if (t.isIdentifier(path.node.id.elements[0])) stateNames.add(path.node.id.elements[0]);
-          if (t.isIdentifier(path.node.id.elements[1])) setters.add(path.node.id.elements[1]);
           const [state, setter] = path.node.id.elements;
-          if (t.isIdentifier(state) && t.isIdentifier(setter)) setterStates.set(setter, state);
-        }
+          const values = state ? Object.values(t.getBindingIdentifiers(state)) : [];
+          for (const id of values) stateNames.add(id);
+          if (t.isIdentifier(setter)) { setters.add(setter); setterStates.set(setter, values); }
+        } else report(path.node, 'STATE_TUPLE_PORT', 'Destructure state and setter during migration so snapshot reads and writes can be audited. Direct tuple returns from local hooks remain supported.');
       }
       if (roots.has(binding(path.scope, path.node.init.callee.name)!) && t.isIdentifier(path.node.id)) roots.add(path.node.id);
     },
   });
+  const stateSources = derivedStateSources(ast, stateNames, hooks);
   traverse(ast, {
     CallExpression(path) {
       const callee = path.node.callee;
@@ -186,14 +188,14 @@ export function migrateSource(source: string, file: string, approvedHooks: Reado
         CallExpression: { exit(call) {
           const callee=call.node.callee;
           if (t.isIdentifier(callee) && setters.has(binding(call.scope, callee.name)!)) {
-            const state = setterStates.get(binding(call.scope, callee.name)!);
-            if (state) writes.set(state, (writes.get(state) ?? 0) + 1);
+            const states = setterStates.get(binding(call.scope, callee.name)!);
+            if (states?.length) for (const state of states) writes.set(state, (writes.get(state) ?? 0) + 1);
             else unknownWrites++;
           } else if (t.isMemberExpression(callee) && t.isIdentifier(callee.object) && customObjects.has(binding(call.scope, callee.object.name)!)) unknownWrites++;
         } },
         ReferencedIdentifier(ref) {
           const state = binding(ref.scope, ref.node.name);
-          if (state && stateNames.has(state) && (writes.has(state) || unknownWrites)) readsAfterWrite = true;
+          if (state && stateNames.has(state) && (unknownWrites || [...stateSources.get(state) ?? [state]].some(source => writes.has(source)))) readsAfterWrite = true;
         },
       });
       if ([...writes.values()].some(count => count > 1) || unknownWrites > 1 || unknownWrites && writes.size || readsAfterWrite)

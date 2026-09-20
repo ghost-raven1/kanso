@@ -1,11 +1,22 @@
-import { useEffect, useId, useRef, useState } from '@kanso/core';
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from '@kanso/core';
 
 export const trace = {
   parents: 0,
   mounts: 0,
   cleanups: 0,
   refs: [] as { current: HTMLInputElement | null }[],
+  summaries: 0,
 };
+
+const Metadata = createContext({ title: 'default' });
+const useTitle = () => useContext(Metadata).title;
+const TitleText = () => useContext(Metadata).title;
+function Summary() {
+  trace.summaries++;
+  const title = useTitle();
+  const { heading } = useMemo(() => ({ heading: title.toUpperCase() }), [title]);
+  return <output data-summary>{heading}<span data-title><TitleText /></span></output>;
+}
 
 function Editor() {
   trace.mounts++;
@@ -41,6 +52,9 @@ export function App() {
     <main>
       <Editor key={revision} />
       <Editor />
+      <Metadata.Provider value={{ title: revision === 0 ? 'first' : 'next' }}>
+        <Summary />
+      </Metadata.Provider>
       <button id="reset" onClick={() => setRevision(value => value + 1)}>
         Reset first
       </button>

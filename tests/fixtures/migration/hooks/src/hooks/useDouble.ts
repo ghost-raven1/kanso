@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 export function useDouble(value: number) {
-  return value * 2;
+  return useMemo(() => value * 2, [value]);
 }

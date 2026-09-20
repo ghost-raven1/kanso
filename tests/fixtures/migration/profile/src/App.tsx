@@ -4,6 +4,7 @@ import React, {
   useId,
   useRef,
   useState,
+  useMemo,
   forwardRef,
   useLayoutEffect,
   useImperativeHandle,
@@ -32,13 +33,15 @@ const Field = forwardRef<HTMLInputElement, ComponentProps<'input'>>((props, ref)
   }, []);
   return <input {...props} ref={input} />;
 });
+const useTheme = () => useContext(Theme);
 function Preview() {
-  const theme = useContext(Theme);
+  const theme = useTheme();
   return <output data-theme>{theme}</output>;
 }
 export function App() {
   const [theme, setTheme] = useState('light');
   const [name, setName] = useState('Alex');
+  const { previewName } = useMemo(() => ({ previewName: name }), [name]);
   const [revision, setRevision] = useState(0);
   const [markup, setMarkup] = useState('<b>Initial draft</b>');
   const input = useRef<HTMLInputElement | null>(null);
@@ -53,7 +56,7 @@ export function App() {
           value={name}
           onChange={event => setName(event.currentTarget.value)}
         />
-        <p data-name>{name}</p>
+        <p data-name>{previewName}</p>
         <Preview />
         <button
           onClick={() =>

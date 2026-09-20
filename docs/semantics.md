@@ -1,4 +1,4 @@
-# Исполнимая спецификация 0.6
+# Исполнимая спецификация Kanso
 
 Основные контракты проверяют `tests/compiler-dom.test.ts`, `tests/contracts.test.ts`, `tests/custom-hooks.test.ts`, `tests/server.test.ts` и браузерные сценарии.
 
@@ -41,6 +41,31 @@ Deps сравниваются поэлементно через `Object.is`. Cle
 `useMemo(fn, deps)` и `useCallback(fn, deps)` используют те же правила deps. Callback может иметь стабильную идентичность и при этом читать актуальное состояние. Это отличается от замыканий React.
 
 Hooks объявляются без условных ветвей в компоненте или скомпилированном `useX`. Тело компонента — setup; его повторные выполнения не являются механизмом обновления. Не вызывайте hooks из обработчиков.
+
+### Результаты hooks в 0.8.1
+
+Прямой терминальный `return useContext(Settings).theme`, `return useMemo(...)`, `return useCallback(...)` или `return useOtherHook(...)` не требует промежуточной переменной. Hook вызывается один раз; возвращаемое значение и обращения к его полям остаются реактивными. Поддерживаются optional member access и TypeScript assertions. `useState`/`useReducer` могут возвращаться целым tuple из обёртки; ref остаётся обычным стабильным объектом.
+
+Компонент также может вернуть реактивный текст или число напрямую: `const ThemeName = () => useContext(Settings).theme`. Обновляется соответствующий текстовый узел; дополнительный DOM-элемент и повторное выполнение компонента не добавляются.
+
+```tsx
+const useTheme = () => useContext(Settings).theme;
+const useCounter = () => useState(0);
+
+function Profile({ user }) {
+  const { label, details: { status = 'new' } } = useMemo(
+    () => ({ label: user.name, details: user.details }),
+    [user],
+  );
+  return <p>{label}: {status}</p>;
+}
+```
+
+Вложенные patterns, defaults и rest поддерживаются также для результатов `useMemo` и состояния: `const [{ name }, setUser] = useState(...)`. `undefined` активирует default, `null` сохраняется. Объявления в обработчике остаются snapshots.
+
+`useRef(expression)` вычисляет начальное значение один раз при setup, даже если expression читает реактивные данные: `const baseline = useRef(JSON.stringify(draft))`. Изменение draft не заменяет baseline; присвоение `ref.current` остаётся явным и нереактивным. Деструктуризация `const { current } = useRef(value)` сохраняет исходный снимок.
+
+Компилятор выделяет вызов только из корня initializer или терминального return и цепочки полей/assertions над ним. Hook внутри JSX, аргумента другого вызова, условного выражения или составного результата вроде `return { theme: useTheme() }` требует явной const-переменной в setup. Это сохраняет порядок вычислений и не превращает условный hook в безусловный. Неизвестная чистота вычислений по-прежнему диагностируется.
 
 ## Пользовательские hooks
 

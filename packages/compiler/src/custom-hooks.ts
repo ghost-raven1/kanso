@@ -2,6 +2,7 @@ import type { Binding, NodePath } from '@babel/traverse';
 import * as t from '@babel/types';
 import { helper, replaceReads, hasReactive, isPureExpression, isSetup, type TransformContext } from './context.js';
 import { bindPattern } from './patterns.js';
+import { bindHookResult } from './hook-binding.js';
 
 const hookName = (path: NodePath<t.Function>): string | undefined =>
   (path.isFunctionDeclaration() || path.isFunctionExpression()) && path.node.id ? path.node.id.name
@@ -77,9 +78,10 @@ export function transformCustomCalls(context: TransformContext): void {
       return t.callExpression(helper(context, '__pendingHookArgument'), [argument]);
     });
     const call = t.callExpression(helper(context, '__callHook'), [path.node.callee, t.arrayExpression(args)]);
-    const declaration = path.parentPath;
-    if (declaration.isExpressionStatement()) { path.replaceWith(call); path.skip(); return; }
-    if (!declaration.isVariableDeclarator() || !declaration.parentPath.isVariableDeclaration({ kind: 'const' })) throw path.buildCodeFrameError('KANSO_HOOK_BINDING: assign the hook result to const before using it.');
+    if (path.parentPath.isExpressionStatement()) { path.replaceWith(call); path.skip(); return; }
+    const declaration = bindHookResult(path);
+    path = declaration.get('init') as NodePath<t.CallExpression>;
+    if (!declaration.parentPath.isVariableDeclaration({ kind: 'const' })) throw path.buildCodeFrameError('KANSO_HOOK_BINDING: assign the hook result to const before using it.');
     const result = path.scope.generateUidIdentifier('hookResult');
     if (t.isIdentifier(declaration.node.id)) {
       replaceReads(path.scope.getBinding(declaration.node.id.name), () => t.callExpression(t.cloneNode(result), []));

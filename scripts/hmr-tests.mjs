@@ -27,7 +27,7 @@ function Counter(){const{count,increment}=useCounter();const[total,dispatch]=use
 useEffect(()=>{window.trace.active++;return()=>{window.trace.active--;window.trace.cleanup++}},[]);
 return <section><button data-count onClick={()=>{cache.current='kept';increment()}}>Count: {count}</button><button data-reducer onClick={()=>dispatch(undefined)}>Total: {total}</button><label htmlFor={id}>Input</label><input id={id} ref={field}/><button data-focus onClick={()=>field.current?.focus()}>Focus</button><span data-ref>{cache.current}</span></section>}
 export function App(){return <main><Counter/><Counter/></main>}`;
-const hookSource = `import{useState}from'@kanso/core';export function useCounter(){const[count,setCount]=useState(()=>{window.trace.initial++;return 0});const increment=()=>setCount(value=>value+1);return{count,increment}}`;
+const hookSource = `import{useState,useMemo}from'@kanso/core';export function useCounter(){const[count,setCount]=useState(()=>{window.trace.initial++;return 0});const increment=()=>setCount(value=>value+1);return useMemo(()=>({count,increment}),[count,increment])}`;
 await writeFile(join(root, 'src/env.d.ts'), 'interface Window { trace: {initial:number;active:number;cleanup:number} }');
 let server;
 const results = [];

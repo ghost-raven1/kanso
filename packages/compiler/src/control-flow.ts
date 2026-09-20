@@ -1,5 +1,6 @@
 import * as t from '@babel/types';
 import type { NodePath } from '@babel/traverse';
+import { hasReactive, type TransformContext } from './context.js';
 
 const returned = (statement: t.Statement | null | undefined): t.Expression | undefined => {
   if (t.isReturnStatement(statement) && t.isExpression(statement.argument)) return statement.argument;
@@ -8,7 +9,7 @@ const returned = (statement: t.Statement | null | undefined): t.Expression | und
 };
 
 /** Lower terminal early-return branches into reactive JSX expressions. */
-export function transformControlFlow(program: NodePath<t.Program>): void {
+export function transformControlFlow(program: NodePath<t.Program>, context: TransformContext): void {
   program.traverse({ Function(path) {
     if (!t.isBlockStatement(path.node.body)) return;
     const name = t.isFunctionDeclaration(path.node) || t.isFunctionExpression(path.node) ? path.node.id?.name
@@ -26,8 +27,11 @@ export function transformControlFlow(program: NodePath<t.Program>): void {
       }
       body.splice(index, statement.alternate ? 1 : 2, t.returnStatement(t.conditionalExpression(statement.test, yes, no)));
     }
-    for (const statement of body) {
-      if (t.isReturnStatement(statement) && (t.isConditionalExpression(statement.argument) || t.isLogicalExpression(statement.argument))) {
+    for (const statementPath of path.get('body').get('body') as NodePath<t.Statement>[]) {
+      const statement = statementPath.node;
+      if (statementPath.isReturnStatement() && t.isReturnStatement(statement) && t.isExpression(statement.argument)
+        && !t.isJSXElement(statement.argument) && !t.isJSXFragment(statement.argument)
+        && (t.isConditionalExpression(statement.argument) || t.isLogicalExpression(statement.argument) || hasReactive(statementPath.get('argument'), context))) {
         statement.argument = t.jsxFragment(t.jsxOpeningFragment(), t.jsxClosingFragment(), [t.jsxExpressionContainer(statement.argument)]);
       }
     }

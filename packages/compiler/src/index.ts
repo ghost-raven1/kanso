@@ -52,7 +52,7 @@ export function kansoBabelPlugin(_api?: unknown, options: { hmr?: 'preserve' | '
     transformDerived(context);
     transformHookArguments(context);
     transformHookReturns(context);
-    transformControlFlow(program);
+    transformControlFlow(program, context);
     transformJsx(context);
     if (context.helpers.size) program.unshiftContainer('body', t.importDeclaration(
       [...context.helpers].map(([name, id]) => t.importSpecifier(id, t.identifier(name))), t.stringLiteral('@kanso/core/internal'),

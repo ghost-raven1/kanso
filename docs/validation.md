@@ -1,6 +1,12 @@
 # Проверка реализации — 20 сентября 2026
 
-Версия Kanso 0.8.0. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
+Версия Kanso 0.8.1. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
+
+## Результаты hooks и точность миграции 0.8.1
+
+`npm run check`: 322/322 Vitest, TypeScript, production-сборки и dependency audit. Регрессии проверяют прямые возвраты hooks между модулями, вложенные state/memo patterns, порядок вычислений, одноразовые ref initializers, очистку эффектов и сохранение проверок условных вызовов. Snapshot-аудит связывает вложенные поля и производные значения с изменяемым состоянием, сохраняя локальные snapshots обработчика и независимые обновления.
+
+SSR/browser fixture проверяет Context selector и деструктуризацию memo в исходном HTML, после гидратации и обновления без повторного setup. React profile/hooks fixtures используют новый синтаксис до и после автоматического переноса; HMR проверяет прямой `return useMemo(...)` с сохранением состояния. Native drag/wheel и обработчики имеют положительные и отрицательные TypeScript-проверки; synthetic members остаются ошибками миграции. Результаты CI привязаны к SHA запуска по ссылке выше.
 
 ## Lifecycle, миграция и восстановление 0.8.0
 

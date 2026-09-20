@@ -15,4 +15,8 @@ export { useStore, type ExternalStore, type StoreSelector, type StoreEquality } 
 export { defineService, createServiceScope, ServiceProvider, useService, type ServiceScope, type ServiceDefinition, type ServiceFactoryContext, type ServiceSnapshots } from './services.js';
 
 export { forwardRef, useImperativeHandle } from './refs.js';
-export type { ChangeEvent, FormEvent, MouseEvent, KeyboardEvent, FocusEvent, PointerEvent, TouchEvent, ClipboardEvent } from './events.js';
+export type {
+  ChangeEvent, FormEvent, MouseEvent, KeyboardEvent, FocusEvent, PointerEvent, TouchEvent, ClipboardEvent, DragEvent, WheelEvent,
+  ChangeEventHandler, FormEventHandler, MouseEventHandler, KeyboardEventHandler, FocusEventHandler,
+  PointerEventHandler, TouchEventHandler, ClipboardEventHandler, DragEventHandler, WheelEventHandler,
+} from './events.js';

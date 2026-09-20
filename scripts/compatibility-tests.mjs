@@ -43,6 +43,9 @@ try {
   assert.equal(documents[0], documents[1], 'separate SSR renders retain deterministic hydration IDs');
   assert.match(documents[0], /<strong>Server markup<\/strong>/);
   assert.doesNotMatch(documents[0], /dangerouslysetinnerhtml/i);
+  assert.match(documents[0], /<output[^>]*data-summary[^>]*>/);
+  assert.match(documents[0], /FIRST/);
+  assert.match(documents[0], /<span[^>]*data-title[^>]*>first<\/span>/);
   for (const [name, engine] of Object.entries({ chromium, firefox, webkit })) {
     if (process.env.KANSO_BROWSERS && !process.env.KANSO_BROWSERS.split(',').includes(name)) continue;
     const browser = await engine.launch();
@@ -64,12 +67,15 @@ try {
       await page.waitForFunction(() => window.ready);
       assert.equal(await page.evaluate(() => window.before.every(node => node.isConnected)), true, `${name}: hydration adopts keyed and raw HTML nodes`);
       assert.equal(await page.getByLabel('Draft', { exact: true }).first().inputValue(), 'Draft before hydration');
+      assert.equal(await page.locator('[data-summary]').textContent(), 'FIRSTfirst');
       assert.equal(await page.locator('input').evaluateAll(nodes => new Set(nodes.map(node => node.id)).size), 2);
       await page.locator('[data-count]').first().click();
       await page.locator('[data-count]').last().click();
       await page.locator('[data-count]').last().click();
       await page.locator('#reset').click();
       assert.deepEqual(await page.locator('[data-count]').allTextContents(), ['0', '2']);
+      assert.equal(await page.locator('[data-summary]').textContent(), 'NEXTnext');
+      assert.equal(await page.evaluate(() => trace.summaries), 1, 'context selectors and memo patterns retain one component setup');
       assert.equal(await page.evaluate(() => window.before[0].isConnected), false);
       assert.equal(await page.evaluate(() => window.before[1].isConnected), true);
       assert.deepEqual(await page.evaluate(() => ({ parents: trace.parents, mounts: trace.mounts, cleanups: trace.cleanups, released: trace.refs[0].current === null })),

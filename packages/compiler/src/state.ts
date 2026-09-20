@@ -1,4 +1,5 @@
 import { bindPattern } from './patterns.js';
+import { bindHookResult } from './hook-binding.js';
 import type { NodePath } from '@babel/traverse';
 import * as t from '@babel/types';
 import { helper, replaceReads, hasReactive, importedName, isSetup, isPureExpression, type TransformContext } from './context.js';
@@ -19,7 +20,12 @@ export function transformHooks(context: TransformContext): void {
       for (let parent = path.parentPath; parent && parent !== owner; parent = parent.parentPath!) {
         if (parent.isIfStatement() || parent.isConditionalExpression() || parent.isLogicalExpression() || parent.isSwitchStatement() || parent.isLoop()) throw path.buildCodeFrameError('KANSO_HOOK_ORDER: move conditional hooks into a child component.');
       }
-      if (['useRef', 'useId', 'useService'].includes(name)) return;
+      if (['useRef', 'useId', 'useService'].includes(name)) {
+        if (path.findParent(parent => parent.isReturnStatement() && parent.getFunctionParent() === owner)) bindHookResult(path);
+        return;
+      }
+      const declaration = ['useEffect', 'useLayoutEffect', 'useImperativeHandle'].includes(name) && path.parentPath.isExpressionStatement() ? undefined : bindHookResult(path);
+      if (declaration) path = declaration.get('init') as NodePath<t.CallExpression>;
       path.node.callee = helper(context, names[name]);
       const args = path.node.arguments;
       if (name === 'useStore') {
@@ -46,10 +52,19 @@ export function transformHooks(context: TransformContext): void {
       }
       if (name === 'useCallback' && t.isExpression(args[0])) args[0] = t.arrowFunctionExpression([], args[0]);
       if (['useEffect', 'useLayoutEffect'].includes(name)) return;
-      const declaration = path.parentPath;
-      if (!declaration.isVariableDeclarator()) throw path.buildCodeFrameError('KANSO_HOOK_BINDING: assign the hook to a const binding.');
+      if (!declaration) return;
       if (!declaration.parentPath.isVariableDeclaration({ kind: 'const' })) throw path.buildCodeFrameError('KANSO_HOOK_BINDING: assign hooks to const.');
-      if (['useContext', 'useStore'].includes(name) && !t.isIdentifier(declaration.node.id)) {
+      if (['useState', 'useReducer'].includes(name) && (!t.isArrayPattern(declaration.node.id) || !t.isIdentifier(declaration.node.id.elements[0]))) {
+        const read = declaration.scope.generateUidIdentifier('state');
+        const write = declaration.scope.generateUidIdentifier('setter');
+        const pattern = declaration.node.id;
+        declaration.node.id = t.arrayPattern([read, write]);
+        declaration.insertAfter(t.variableDeclarator(pattern, t.arrayExpression([t.callExpression(t.cloneNode(read), []), t.cloneNode(write)])));
+        context.reactive.add(read);
+        declaration.scope.crawl();
+        return;
+      }
+      if (['useContext', 'useStore', 'useMemo', 'useCallback'].includes(name) && !t.isIdentifier(declaration.node.id)) {
         const id = declaration.scope.generateUidIdentifier('context');
         const pattern = declaration.node.id;
         declaration.node.id = id;
@@ -77,7 +92,8 @@ export function transformDerived(context: TransformContext): void {
       const { id, init } = path.node;
       if (!isSetup(path, context) || !init || !t.isExpression(init)) return;
       if (t.isFunction(init) || t.isCallExpression(init) && t.isIdentifier(init.callee)
-        && [...context.helpers.values()].some(value => value.name === (init.callee as t.Identifier).name)) return;
+        && ([...context.helpers.values()].some(value => value.name === (init.callee as t.Identifier).name)
+          || ['useRef', 'useId', 'useService'].includes(importedName(context, path.scope, init.callee.name) ?? ''))) return;
       if ((t.isObjectPattern(id) || t.isArrayPattern(id)) && hasReactive(path.get('init'), context)) {
         if (!path.parentPath.isVariableDeclaration({ kind: 'const' })) throw path.buildCodeFrameError('KANSO_PROPS: destructure live values with const.');
         path.replaceWithMultiple(bindPattern(context, path, id, init));
