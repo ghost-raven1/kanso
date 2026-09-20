@@ -2,7 +2,7 @@
 
 React-shaped TSX. Solid reactivity. No React runtime.
 
-Рабочая реализация **0.9.0**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO, микрофронты, внешние stores и сервисы на приложение/SSR-запрос, необязательные инструменты Web/Service Workers. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Совместимость с React-зависимыми библиотеками не предоставляется.
+Рабочая реализация **0.10.0**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO, микрофронты, внешние stores и сервисы на приложение/SSR-запрос, необязательные инструменты Web/Service Workers. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Совместимость с React-зависимыми библиотеками не предоставляется.
 
 ```tsx
 import { useState, useEffect } from '@kanso/core';
@@ -271,9 +271,9 @@ npm run bench            # production Kanso/Solid/React/memo/React Compiler
 Linux-проверка всех браузеров, в том числе при проблеме запуска Firefox на macOS 27:
 
 ```bash
-docker build -f Dockerfile.test -t kanso-test:0.9.0 .
+docker build -f Dockerfile.test -t kanso-test:0.10.0 .
 mkdir -p output/linux
-docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.9.0
+docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.10.0
 ```
 
 Результаты и скриншоты сохраняются в `output/`. Исходные условия и результаты замеров — в [отчёте](docs/validation.md). CI описан в `.github/workflows/ci.yml`.
@@ -298,5 +298,9 @@ PORT=4180 npm run preview
 Откройте `http://127.0.0.1:4180/`. Предварительно проверьте, что порт свободен. Данные и регистрации других приложений автоматически не удаляются.
 
 В 0.9.0 добавлены [Portal](docs/portals.md), [тестовый API и конфигурация Vitest](docs/testing.md), [читаемая диагностика CLI](docs/logging.md). В лаборатории **Lifecycle & portals** доступны refs, списки и немодальная панель с общим Context.
+
+В 0.10.0 добавлен [Dialog](docs/dialogs.md): вложенные модальные окна, управление закрытием, фокусом и прокруткой, собственные стили. [Защита серверного транспорта](docs/security.md) включает проверку источника actions, лимит POST, разделение HTML-кеша по origin и проверку redirect URL. При обновлении существующего приложения проверьте upload-лимит, cookie POST без Origin и override зависимости, описанные в руководстве.
+
+[Lazy-компоненты](docs/lazy.md) поддерживают страницы и загрузку интерактивных блоков по взаимодействию с лёгкой оболочкой; все fallback настраиваются. [useTransition](docs/transitions.md) ожидает готовность нового UI и поддерживает кастомные keyframes. Примеры доступны в разделе **Lazy route** лаборатории.
 
 [Критерии готовности 1.0](docs/migration-readiness.md#условия-готовности-10) относятся к возможностям фреймворка. Перенос конкретного приложения выполняется отдельно; оставшиеся UI, navigation, form и integration-контракты перечислены явно.

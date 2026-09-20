@@ -1,6 +1,7 @@
 import { createContext, createResource, createSignal, onCleanup, useContext, type Accessor } from 'solid-js';
 import { responseError } from './recovery.js';
 import { isServer } from 'solid-js/web';
+import { safeRedirect } from './redirects.js';
 import type { Bootstrap } from './types.js';
 import { remoteHeaders, useMicrofrontendSession, type MicrofrontendSession } from './microfrontends.js';
 import type { ServiceScope } from '@kanso/core';
@@ -35,7 +36,7 @@ export function createNavigationLoader(fetcher: typeof fetch = fetch, session?: 
       });
       if (current !== sequence) throw new DOMException('Stale navigation', 'AbortError');
       const redirect = response.headers.get('X-Kanso-Redirect');
-      if (redirect && !isServer) { window.location.assign(redirect); throw new Error('Redirecting'); }
+      if (redirect && !isServer) { window.location.assign(safeRedirect(redirect)); throw new Error('Redirecting'); }
       if (!response.ok) throw responseError(response, 'Route data failed');
       const result = await response.json() as Bootstrap;
       if (current !== sequence) throw new DOMException('Stale navigation', 'AbortError');

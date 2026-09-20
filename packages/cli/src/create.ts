@@ -39,6 +39,9 @@ export async function createProject(
             version: '0.1.0',
             private: true,
             type: 'module',
+            overrides: {
+              '@module-federation/dts-plugin': { 'adm-zip': '0.6.1' },
+            },
             scripts: {
               dev: 'vite',
               build: 'vite build',

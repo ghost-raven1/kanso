@@ -4,7 +4,7 @@ import type { NodePath } from '@babel/traverse';
 import * as t from '@babel/types';
 import { helper, replaceReads, hasReactive, importedName, isSetup, isPureExpression, type TransformContext } from './context.js';
 
-const names: Record<string, string> = { useState: '__state', useReducer: '__reducer', useEffect: '__effect', useLayoutEffect: '__layoutEffect', useImperativeHandle: '__imperativeHandle', useMemo: '__memo', useCallback: '__callback', useContext: '__context', useStore: '__store' };
+const names: Record<string, string> = { useState: '__state', useReducer: '__reducer', useTransition: '__transition', useEffect: '__effect', useLayoutEffect: '__layoutEffect', useImperativeHandle: '__imperativeHandle', useMemo: '__memo', useCallback: '__callback', useContext: '__context', useStore: '__store' };
 
 export function transformHooks(context: TransformContext): void {
   context.program.traverse({
@@ -54,7 +54,7 @@ export function transformHooks(context: TransformContext): void {
       if (['useEffect', 'useLayoutEffect'].includes(name)) return;
       if (!declaration) return;
       if (!declaration.parentPath.isVariableDeclaration({ kind: 'const' })) throw path.buildCodeFrameError('KANSO_HOOK_BINDING: assign hooks to const.');
-      if (['useState', 'useReducer'].includes(name) && (!t.isArrayPattern(declaration.node.id) || !t.isIdentifier(declaration.node.id.elements[0]))) {
+      if (['useState', 'useReducer', 'useTransition'].includes(name) && (!t.isArrayPattern(declaration.node.id) || !t.isIdentifier(declaration.node.id.elements[0]))) {
         const read = declaration.scope.generateUidIdentifier('state');
         const write = declaration.scope.generateUidIdentifier('setter');
         const pattern = declaration.node.id;
@@ -74,7 +74,7 @@ export function transformHooks(context: TransformContext): void {
         return;
       }
       const id = declaration.node.id;
-      const value = name === 'useState' || name === 'useReducer' ? t.isArrayPattern(id) ? id.elements[0] : null : id;
+      const value = ['useState', 'useReducer', 'useTransition'].includes(name) ? t.isArrayPattern(id) ? id.elements[0] : null : id;
       if (!t.isIdentifier(value)) throw path.buildCodeFrameError('KANSO_HOOK_BINDING: use a named value binding.');
       const oldName = value.name;
       const newId = path.scope.generateUidIdentifier(oldName);

@@ -1,11 +1,15 @@
 import { defineRoutes, Link } from '@kanso/app';
 import { lazy, type PropsWithChildren } from '@kanso/core';
-import Home from './pages/Home';
-import Data from './pages/Data';
-import SeoPage, { SeoExample } from './pages/Seo';
 import { defineRouteSeo } from '@kanso/app/seo';
-import Lifecycle from './pages/Lifecycle';
-import Services from './pages/Services';
+
+const Home = lazy(() => import('./pages/Home'));
+const Data = lazy(() => import('./pages/Data'));
+const SeoPage = lazy(() => import('./pages/Seo'));
+const SeoExample = lazy(() =>
+  import('./pages/Seo').then(module => ({ default: module.SeoExample })),
+);
+const Lifecycle = lazy(() => import('./pages/Lifecycle'));
+const Services = lazy(() => import('./pages/Services'));
 
 function Layout({ children }: PropsWithChildren) {
   return (

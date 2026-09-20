@@ -1,5 +1,7 @@
 # Portal
 
+Для модального окна с изоляцией фокуса и Escape используйте [Dialog](dialogs.md).
+
 `Portal` из `@kanso/core` размещает содержимое вне layout, сохраняя Context,
 сервисы, реактивные props и владельца cleanup. React DOM не используется.
 

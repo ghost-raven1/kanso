@@ -6,6 +6,7 @@ import {
   useState,
 } from '@kanso/core';
 import PortalExample from './PortalExample';
+import DialogExample from './DialogExample';
 
 interface InputHandle {
   focus(): void;
@@ -55,6 +56,7 @@ export default function Lifecycle() {
   return (
     <div className="grid">
       <PortalExample />
+      <DialogExample />
       <article className="panel compact">
         <span className="tag">REFS & LAYOUT</span>
         <h2>Фокус через API компонента</h2>

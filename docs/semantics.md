@@ -111,7 +111,11 @@ Handlers располагаются в server entry / `.server.ts`. Такие �
 
 Навигация отменяет предыдущий fetch и проверяет последовательность до публикации ответа/redirect. Form отправляет native POST на URL страницы и возвращает 422 HTML при валидации. JavaScript использует тот же action через JSON: pending длится до завершения revalidation. Явно возвращённые values и ошибки из native POST передаются только соответствующей форме через bootstrap. Cleanup и смена URL отменяют незавершённую отправку; поздние ответы игнорируются. Ошибка revalidation сохраняет последний snapshot и повторяется отдельно от action. Контракты типов, формы и redirect описаны в [руководстве 0.5](web-apps.md).
 
-HTML кешируется на сервере только при `cache: { public: true, ttlMs }`. Cookie/Authorization отключают общий кеш. Ключ включает build ID, URL и явно перечисленные vary headers. Success actions инвалидируют кеш; старый in-flight результат не возвращает удалённое поколение. Приложение отвечает за корректность декларации public и за внешнее хранилище кеша при нескольких процессах.
+HTML кешируется на сервере только при `cache: { public: true, ttlMs }`. Cookie/Authorization отключают общий кеш. Ключ включает build ID, origin, pathname/query и явно перечисленные vary headers. Success actions инвалидируют кеш; старый in-flight результат не возвращает удалённое поколение. Приложение отвечает за корректность декларации public и за внешнее хранилище кеша при нескольких процессах.
+
+В 0.10 POST проверяет происхождение до Context/handlers и ограничен 1 MiB (`maxBodyBytes`). Cookie POST без подтверждения same-origin отклоняется. Redirect допускает относительные и HTTP(S) URL. [Границы безопасности](security.md).
+
+`lazy(loader)` загружает компонент при рендере; `lazy(loader, { interaction })` сначала показывает лёгкую оболочку, а модуль запрашивает после взаимодействия. Индикаторы задаются JSX/компонентами. `useTransition` возвращает живой pending и функцию синхронного state update, ожидающую Suspense и опциональную Web Animation. [Lazy](lazy.md), [transition](transitions.md), [Dialog](dialogs.md).
 
 ## Микрофронты
 

@@ -50,12 +50,12 @@ async function installManifest(root: string, name: string, version: string, depe
 
 async function doctorFixture() {
   const root = await temporary();
-  const pkg = { name: 'platform', version: '1.0.0', dependencies: { '@kanso/core': '0.9.0', '@kanso/microfrontends': '0.9.0' }, devDependencies: { '@kanso/vite': '0.9.0', vite: '8.3.0' } };
+  const pkg = { name: 'platform', version: '1.0.0', dependencies: { '@kanso/core': '0.10.0', '@kanso/microfrontends': '0.10.0' }, devDependencies: { '@kanso/vite': '0.10.0', vite: '8.3.0' } };
   await writeFile(join(root, 'package.json'), JSON.stringify(pkg));
-  await installManifest(root, '@kanso/core', '0.9.0', { 'solid-js': '1.9.15' });
-  await installManifest(root, '@kanso/app', '0.9.0', { '@kanso/core': '0.9.0', '@solidjs/router': '0.16.3' });
-  await installManifest(root, '@kanso/microfrontends', '0.9.0', { '@kanso/core': '0.9.0', '@kanso/app': '0.9.0' });
-  await installManifest(root, '@kanso/vite', '0.9.0');
+  await installManifest(root, '@kanso/core', '0.10.0', { 'solid-js': '1.9.15' });
+  await installManifest(root, '@kanso/app', '0.10.0', { '@kanso/core': '0.10.0', '@solidjs/router': '0.16.3' });
+  await installManifest(root, '@kanso/microfrontends', '0.10.0', { '@kanso/core': '0.10.0', '@kanso/app': '0.10.0' });
+  await installManifest(root, '@kanso/vite', '0.10.0');
   await installManifest(root, '@solidjs/router', '0.16.3');
   await installManifest(root, 'solid-js', '1.9.15');
   await installManifest(root, 'vite', '8.3.0');
@@ -86,8 +86,8 @@ it('scaffolds a standalone remote without copying the shell and targets the curr
   const root = join(await temporary(), 'remote');
   await createProject(root, undefined, { template: 'remote' });
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
-  expect(pkg.dependencies['@kanso/core']).toBe('^0.9.0');
-  expect(pkg.dependencies['@kanso/microfrontends']).toBe('^0.9.0');
+  expect(pkg.dependencies['@kanso/core']).toBe('^0.10.0');
+  expect(pkg.dependencies['@kanso/microfrontends']).toBe('^0.10.0');
   expect(pkg.scripts).toMatchObject({ dev: 'node scripts/dev.mjs', build: 'node scripts/build.mjs', preview: 'node scripts/serve.mjs', typecheck: 'tsc --noEmit' });
   expect(await readdir(root)).not.toContain('host');
   expect(await readdir(root)).not.toContain('catalog');

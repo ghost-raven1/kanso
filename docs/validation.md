@@ -1,6 +1,24 @@
 # Проверка реализации — 20 сентября 2026
 
-Версия Kanso 0.9.0. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
+Версия Kanso 0.10.0. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
+
+## Lazy, transition, dialogs и HTTP 0.10.0
+
+`npm run check`: 358/358 Vitest, TypeScript, форматирование, production-сборки и
+dependency audit. Локально Chromium/WebKit проходят лабораторию и stateful HMR;
+Firefox проверяется в Linux CI.
+
+Добавлены регрессии origin-aware cache, источника cookie actions, POST byte limits,
+HTTP 413 через Node, отмены stalled body и активных redirect schemes. Проверяются
+server-only shell, один lazy import, первое действие, ввод, custom fallback/retry,
+поздняя загрузка после cleanup, live pending и отмена transition. Browser suite
+проверяет реальные сетевые чанки, SSR input hydration, вложенные dialogs, Tab/Escape,
+возврат фокуса, scroll lock, touch activation, reduced motion и кастомные keyframes.
+
+`npm audit` после override adm-zip 0.6.1: 0 известных уязвимостей. Холодная `npm ci`
+по копии manifests/lockfile вне workspace проходит с тем же результатом. Новые
+CLI-шаблоны содержат root override; существующим приложениям нужен описанный в
+[security](security.md) шаг обновления. Это не аудит production-серверов.
 
 ## Portal, тестовое окружение и CLI 0.9.0
 
@@ -144,4 +162,4 @@ FCP/LCP измерены для этих небольших CSR-эталонов
 
 ## Граница готовности
 
-Доступна версия 0.8 с перечисленными контрактами, HMR, CSR/SSR-шаблонами и проверяемым мигратором. Это не утверждение о полной совместимости произвольного React-кода или всей экосистемы. Ограничения hooks, типов, map callback, управления потоком и границ HMR перечислены в semantics.md, migration.md и dx.md. При обновлении родителя HMR может пересоздать дочернее поддерево; сохранение DOM и фокуса при HMR не гарантируется.
+Доступна версия 0.10.0 с перечисленными контрактами, HMR, CSR/SSR-шаблонами и проверяемым мигратором. Это не утверждение о полной совместимости произвольного React-кода или всей экосистемы. Ограничения hooks, типов, map callback, управления потоком и границ HMR перечислены в semantics.md, migration.md и dx.md. При обновлении родителя HMR может пересоздать дочернее поддерево; сохранение DOM и фокуса при HMR не гарантируется.

@@ -1,6 +1,7 @@
 import { createComponent, createComputed, createSignal, createUniqueId, mergeProps, onCleanup, splitProps, useContext, type JSX } from 'solid-js';
 import { FORM_BUILD, responseError } from './recovery.js';
 import { Dynamic, isServer } from 'solid-js/web';
+import { safeRedirect } from './redirects.js';
 import { DataContext, RouteIdContext } from './data.js';
 import type { ActionResult, FormValues } from './types.js';
 import { REMOTE_VERSIONS, remoteHeaders, scopedRouteId, useMicrofrontendSession } from './microfrontends.js';
@@ -85,7 +86,7 @@ export function useForm<T = unknown, V extends FormValues = FormValues>(options?
         });
         if (current !== request) return;
         const redirect = response.headers.get('X-Kanso-Redirect');
-        if (redirect) { window.location.assign(redirect); return; }
+        if (redirect) { window.location.assign(safeRedirect(redirect)); return; }
         if (!response.ok && response.status !== 422) throw responseError(response, 'Submit failed');
         const result = await response.json() as ActionResult<T, V>;
         if (current !== request) return;

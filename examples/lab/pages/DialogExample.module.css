@@ -1,0 +1,68 @@
+.dialog {
+  padding: 0;
+  border: 1px solid #858897;
+  border-radius: 1rem;
+  width: min(30rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.dialog::backdrop {
+  background: #14182499;
+}
+
+.surface {
+  --dialog-bg: #f8f8fb;
+  --dialog-text: #20232c;
+  background: var(--dialog-bg);
+  color: var(--dialog-text);
+  padding: 1.5rem;
+}
+
+.surface[data-theme='dark'] {
+  --dialog-bg: #20232c;
+  --dialog-text: #f8f8fb;
+}
+
+.surface label {
+  display: block;
+  margin: 1rem 0;
+}
+
+.surface input:not([type='checkbox']) {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  color: inherit;
+  background: inherit;
+  border: 1px solid #858897;
+  border-radius: 0.5rem;
+  font: inherit;
+}
+
+.surface .check {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.surface button {
+  min-height: 44px;
+  color: inherit;
+  background: inherit;
+  border: 1px solid #858897;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font: inherit;
+}

@@ -1,10 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { createComponent } from 'solid-js';
 import { createRequestHandler, createRenderCache, serialize } from '@kanso/app/server';
-import { defineRoutes, useLoaderData, matchRoute, createNavigationLoader } from '@kanso/app';
+import { defineRoutes, useLoaderData, matchRoute, createNavigationLoader, preloadRoute } from '@kanso/app';
 import { __effect } from '@kanso/core/internal';
 
 function Page() { const data = useLoaderData<{ name: string }>(); return data.name; }
+
+it('prepares only the active page/layout modules and propagates a missing chunk', async () => {
+  const calls: string[] = [];
+  const component = (id: string) => Object.assign(() => id, { preload: async () => { calls.push(id); if (id === 'broken') throw Error('Missing chunk'); } });
+  const routes = defineRoutes([{ id: 'layout', path: '/', component: component('layout'), children: [
+    { id: 'home', path: '/', component: component('home') },
+    { id: 'other', path: '/other', component: component('other') },
+    { id: 'broken', path: '/broken', component: component('broken') },
+  ] }]);
+  await preloadRoute(routes, '/other?q=value');
+  expect(calls).toEqual(['layout', 'other']);
+  await expect(preloadRoute(routes, '/broken')).rejects.toThrow('Missing chunk');
+});
 const routes = defineRoutes([{ id: 'home', path: '/', component: Page }]);
 const config = { routes, buildId: 'test-build', assets: { entry: '/assets/client.js', styles: ['/assets/main.css'] } };
 

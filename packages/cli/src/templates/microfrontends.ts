@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { cliAsset, KANSO_PACKAGES, kansoPackageVersion } from '../packages.js';
 
 interface TemplatePackage {
+  overrides?: Record<string, unknown>;
   scripts?: Record<string, string>;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
@@ -33,6 +34,7 @@ export async function microfrontendFiles(
       }
     }
     if (path === 'package.json') {
+      pkg.overrides = { ...pkg.overrides, '@module-federation/dts-plugin': { 'adm-zip': '0.6.1' } };
       pkg.scripts = { dev: 'node scripts/dev.mjs', build: 'node scripts/build.mjs', preview: 'node scripts/serve.mjs', typecheck: 'tsc --noEmit', ...pkg.scripts };
       if (local) {
         pkg.devDependencies ??= {};

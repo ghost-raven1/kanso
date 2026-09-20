@@ -6,8 +6,8 @@ export function installDOM(): void {
   const original = new Map<string, PropertyDescriptor | undefined>();
   let dom: JSDOM;
   beforeAll(() => {
-    dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', { url: 'http://localhost' });
-    for (const key of ['window', 'document', 'Node', 'Element', 'HTMLElement', 'HTMLHeadElement', 'HTMLInputElement', 'Event', 'MouseEvent', 'MutationObserver']) {
+    dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', { url: 'http://localhost', pretendToBeVisual: true });
+    for (const key of ['window', 'document', 'Node', 'Element', 'HTMLElement', 'HTMLHeadElement', 'HTMLInputElement', 'HTMLTextAreaElement', 'Event', 'MouseEvent', 'MutationObserver', 'requestAnimationFrame', 'cancelAnimationFrame']) {
       original.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
       Object.defineProperty(globalThis, key, { value: Reflect.get(dom.window, key), configurable: true, writable: true });
     }

@@ -77,6 +77,16 @@ export function useRouteUrl<R extends Route[]>(routes: R) {
 
 export interface RouteMatch { route: Route; ancestors: Route[]; params: Record<string, string> }
 
+/** Prepare only the active page/layout code before hydrating existing server DOM. No data loaders run. */
+export async function preloadRoute(routes: Route[], url: string): Promise<void> {
+  const match = matchRoute(routes, new URL(url, 'http://kanso.local').pathname);
+  if (!match) return;
+  await Promise.all([...match.ancestors, match.route].map(route => {
+    const component = route.component as Route['component'] & { preload?: () => Promise<unknown> };
+    return component.preload?.();
+  }));
+}
+
 /** Resolve the same named segments, nested paths and terminal splats as the router. */
 export function matchRoute(routes: Route[], pathname: string): RouteMatch | undefined {
   const candidates: { route: Route; ancestors: Route[]; segments: string[]; score: number }[] = [];

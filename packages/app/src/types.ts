@@ -54,5 +54,7 @@ export interface RequestHandlerOptions<C = unknown, R extends Route[] = Route[]>
   robots?: RobotsOptions;
   sitemap?: SitemapOptions;
   timeoutMs?: number;
+  /** Maximum buffered POST body, in bytes. Defaults to 1 MiB; increase explicitly for uploads. */
+  maxBodyBytes?: number;
   maxCacheEntries?: number;
 }

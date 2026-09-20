@@ -1,6 +1,6 @@
 {
   "name": "@kanso/core",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "type": "module",
   "sideEffects": false,
   "files": [
@@ -22,6 +22,10 @@
     "./testing": {
       "types": "./dist/testing.d.ts",
       "default": "./dist/testing.js"
+    },
+    "./overlays": {
+      "types": "./dist/overlays.d.ts",
+      "default": "./dist/overlays.js"
     },
     "./jsx-runtime": {
       "types": "./dist/jsx-runtime.d.ts",

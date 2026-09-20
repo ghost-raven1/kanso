@@ -1,4 +1,4 @@
-import { App, readBootstrap } from '@kanso/app';
+import { App, readBootstrap, preloadRoute } from '@kanso/app';
 import { mount, hydrateWhenReady } from '@kanso/core/client';
 import { routes } from './routes';
 import { seo } from './seo.config';
@@ -9,10 +9,10 @@ const root = document.getElementById('root')!;
 const bootstrap = readBootstrap(document, __KANSO_BUILD_ID__);
 const render = () => <App routes={routes} seo={seo} bootstrap={bootstrap} />;
 if (bootstrap) {
-  const result = await hydrateWhenReady(
-    async () => ({ default: render }),
-    root,
-  );
+  const result = await hydrateWhenReady(async () => {
+    await preloadRoute(routes, bootstrap.url);
+    return { default: render };
+  }, root);
   window.kansoReady = result.status === 'hydrated';
 } else {
   mount(render, root);

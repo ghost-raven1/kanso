@@ -5,8 +5,8 @@ import type { Plugin, PluginOption, ResolvedConfig } from 'vite';
 import ts from 'typescript';
 import { remoteResources } from './remote-resources.js';
 
-const runtime = { '@kanso/core': '0.9.0', '@kanso/app': '0.9.0', '@kanso/microfrontends': '0.9.0', 'solid-js': '1.9.15', '@solidjs/router': '0.16.3' };
-const shares = ['solid-js', 'solid-js/web', 'solid-js/store', '@kanso/core', '@kanso/core/internal', '@kanso/core/client', '@kanso/core/hmr', '@kanso/app', '@kanso/app/integration', '@kanso/app/seo', '@kanso/app/solid-router', '@solidjs/router'];
+const runtime = { '@kanso/core': '0.10.0', '@kanso/app': '0.10.0', '@kanso/microfrontends': '0.10.0', 'solid-js': '1.9.15', '@solidjs/router': '0.16.3' };
+const shares = ['solid-js', 'solid-js/web', 'solid-js/store', '@kanso/core', '@kanso/core/internal', '@kanso/core/client', '@kanso/core/hmr', '@kanso/core/overlays', '@kanso/app', '@kanso/app/integration', '@kanso/app/seo', '@kanso/app/solid-router', '@solidjs/router'];
 export interface MicrofrontendBuildOptions {
   name: string;
   contract?: string;

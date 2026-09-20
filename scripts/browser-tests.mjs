@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium, firefox, webkit } from 'playwright';
+import { checkDialogs } from './dialog-scenarios.mjs';
+import { checkLazy } from './lazy-scenarios.mjs';
 
 const port = 4174;
 const origin = `http://127.0.0.1:${port}`;
@@ -189,6 +191,8 @@ try {
       assert.equal(await lifecycle.evaluate(() => window.originalField === document.querySelector('[aria-label="Lifecycle draft"]')), true);
       assert.equal(await lifecycle.getByLabel('Lifecycle draft').inputValue(), 'before hydration');
       await lifecycle.close();
+      await checkDialogs(page, origin);
+      await checkLazy(browser, origin);
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(origin);
       await page.waitForFunction(() => window.kansoReady);
@@ -205,7 +209,7 @@ try {
       assert.equal(await offline.locator('#count').textContent(), '0');
       assert.equal(await offline.locator('[data-row]').count(), 3);
       await offline.close();
-      results.push({ browser: name, version: browser.version(), passed: true, checks: ['SSR DOM identity', 'pre-hydration input', 'no duplicate loader', 'fine-grained updates', 'key identity and focus', 'effect disposal', 'forms and revalidation', 'lazy SSR', 'mobile layout', 'failed JavaScript retains HTML', 'SSR metadata', 'head hydration identity', 'reactive SEO', 'JSON-LD cleanup', 'route parameters and back/forward SEO', 'stale SEO response rejected', 'application service scopes', 'forwarded refs and layout effects', 'live map setup and destructuring', 'lifecycle SSR hydration'] });
+      results.push({ browser: name, version: browser.version(), passed: true, checks: ['SSR DOM identity', 'pre-hydration input', 'no duplicate loader', 'fine-grained updates', 'key identity and focus', 'effect disposal', 'forms and revalidation', 'lazy SSR', 'mobile layout', 'failed JavaScript retains HTML', 'SSR metadata', 'head hydration identity', 'reactive SEO', 'JSON-LD cleanup', 'route parameters and back/forward SEO', 'stale SEO response rejected', 'application service scopes', 'forwarded refs and layout effects', 'live map setup and destructuring', 'lifecycle SSR hydration', 'nested dialogs and focus restoration', 'interaction lazy chunks and first activation', 'lazy touch and input preservation', 'missing active chunk retains SSR', 'custom transition animation and reduced motion'] });
       console.log(`${name}: all browser scenarios passed`);
     } finally { await browser.close(); }
   }

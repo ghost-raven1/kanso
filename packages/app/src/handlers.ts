@@ -1,5 +1,6 @@
 import type { Route } from './types.js';
 import type { RouteId, TypedRouteHandlers } from './routes.js';
+import { safeRedirect } from './redirects.js';
 
 /** Validate handler identities while retaining inferred loader and action results. */
 export function defineRouteHandlers<const R extends Route[], H extends TypedRouteHandlers<R>>(
@@ -12,6 +13,6 @@ export function defineRouteHandlers<const R extends Route[], H extends TypedRout
 /** POST/Redirect/GET by default; headers such as Set-Cookie remain intact. */
 export function redirect(url: string, status: 301 | 302 | 303 | 307 | 308 = 303, headers?: HeadersInit): Response {
   const result = new Headers(headers);
-  result.set('Location', url);
+  result.set('Location', safeRedirect(url));
   return new Response(null, { status, headers: result });
 }

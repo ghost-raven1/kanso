@@ -1,6 +1,6 @@
 export { useState, useReducer, useEffect, useMemo, useCallback, useRef, useId, useLayoutEffect } from './hooks.js';
 export {
-  lazy, Suspense, ErrorBoundary, createRoot, batch,
+  Suspense, ErrorBoundary, createRoot, batch,
   onCleanup, onMount, untrack,
 } from 'solid-js';
 export { createStore, produce, reconcile } from 'solid-js/store';
@@ -16,6 +16,8 @@ export { defineService, createServiceScope, ServiceProvider, useService, type Se
 
 export { forwardRef, useImperativeHandle } from './refs.js';
 export { Portal, type PortalProps } from './portal.js';
+export { useTransition, type TransitionOptions, type TransitionAnimation, type StartTransition } from './transition.js';
+export { lazy, type LazyOptions } from './lazy.js';
 export type {
   ChangeEvent, FormEvent, MouseEvent, KeyboardEvent, FocusEvent, PointerEvent, TouchEvent, ClipboardEvent, DragEvent, WheelEvent,
   ChangeEventHandler, FormEventHandler, MouseEventHandler, KeyboardEventHandler, FocusEventHandler,

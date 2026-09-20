@@ -10,6 +10,8 @@ import type { Bootstrap, RequestHandlerOptions, Route, RouteHandlers } from './t
 import { createMicrofrontendSession, REMOTE_VERSIONS, remoteSnapshot, type MicrofrontendSession, type RemotePins } from './microfrontends.js';
 import { defineRoutes } from './routes.js';
 import { createServiceScope, type ServiceScope } from '@kanso/core';
+import { actionOriginAllowed, readActionRequest } from './request-security.js';
+import { safeRedirect } from './redirects.js';
 
 export type { RequestHandlerOptions, LoaderArgs, RouteHandlers, ActionResult, FormValues } from './types.js';
 export { defineRouteHandlers, redirect } from './handlers.js';
@@ -25,6 +27,11 @@ function pageUrl(raw: string, origin: string): URL {
 
 function transportResponse(response: Response, enhanced: boolean, head: boolean): Response {
   const headers = new Headers(response.headers);
+  try {
+    for (const name of ['Location', 'X-Kanso-Redirect']) if (headers.has(name)) safeRedirect(headers.get(name)!);
+  } catch {
+    return new Response(head ? null : 'Invalid redirect URL', { status: 500, headers: { 'Cache-Control': 'no-store' } });
+  }
   if (enhanced && response.status >= 300 && response.status < 400 && headers.has('Location')) {
     headers.set('X-Kanso-Redirect', headers.get('Location')!);
     headers.delete('Location');
@@ -36,6 +43,8 @@ function transportResponse(response: Response, enhanced: boolean, head: boolean)
 
 /** Portable buffered SSR. Loaders, native forms and enhanced forms share request state. */
 export function createRequestHandler<C = unknown, const R extends Route[] = Route[]>(options: RequestHandlerOptions<C, R>): (request: Request) => Promise<Response> {
+  const maxBodyBytes = options.maxBodyBytes ?? 1024 * 1024;
+  if (!Number.isSafeInteger(maxBodyBytes) || maxBodyBytes < 0) throw new Error('maxBodyBytes must be a non-negative safe integer.');
   // Matching the route at runtime supplies exactly the params declared by R.
   const handlers = options.handlers as Record<string, RouteHandlers<C>> | undefined;
   const cache = createRenderCache<Response>(options.maxCacheEntries);
@@ -65,6 +74,10 @@ export function createRequestHandler<C = unknown, const R extends Route[] = Rout
     });
     try {
       const run = async (): Promise<Response> => {
+        if (post) {
+          if (!actionOriginAllowed(request)) return new Response('Cross-origin action rejected', { status: 403 });
+          request = await readActionRequest(request, maxBodyBytes, signal);
+        }
         let clientBuild = request.headers.get('X-Kanso-Build');
         if (post && !clientBuild) {
           try { const value = (await request.clone().formData()).get(FORM_BUILD); if (typeof value === 'string') clientBuild = value; } catch { /* Existing form validation supplies the response. */ }
@@ -130,8 +143,6 @@ export function createRequestHandler<C = unknown, const R extends Route[] = Rout
           let actionState: Bootstrap['action'];
           let status = 200;
           if (post) {
-            const origin = request.headers.get('Origin');
-            if (origin && origin !== incoming.origin) return new Response('Cross-origin action rejected', { status: 403 });
             let id = actionId;
             let formId: string | undefined;
             if (id === undefined) {
@@ -188,7 +199,7 @@ export function createRequestHandler<C = unknown, const R extends Route[] = Rout
         // A widget can discover another release during rendering. Cache only after all registered identities are pinned.
         const allPinned = !session || options.microfrontends!.every(remote => session!.pins()[remote.name]);
         const canCache = allPinned && policy?.public && !post && !dataRequest && !request.headers.has('Cookie') && !request.headers.has('Authorization');
-        const key = JSON.stringify([options.buildId, session?.pins(), url.pathname + url.search, ...(policy?.vary ?? []).map(header => request.headers.get(header))]);
+        const key = JSON.stringify([options.buildId, session?.pins(), url.origin, url.pathname + url.search, ...(policy?.vary ?? []).map(header => request.headers.get(header))]);
         return canCache ? (await cache.get(key, policy.ttlMs, execute)).clone() : execute();
       };
       return transportResponse(await Promise.race([run(), aborted]), enhanced, request.method === 'HEAD');
