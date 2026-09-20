@@ -145,6 +145,7 @@ try {
       await page.waitForFunction(() => document.querySelector('#service-count')?.textContent === 'Count: 0');
       await page.screenshot({ path: `output/browser/${name}-services.png`, fullPage: true });
       await page.getByRole('link', { name: '06 · Refs & lists' }).click();
+      assert.equal(await page.getByRole('status').textContent(), 'DOM подключён; ref доступен', 'layout effects run after navigation/conditional DOM attachment');
       await page.getByRole('button', { name: 'Focus draft' }).click();
       assert.equal(await page.getByLabel('Lifecycle draft').evaluate(node => node === document.activeElement), true);
       await page.getByLabel('Note alpha').fill('keep row draft');
@@ -157,6 +158,7 @@ try {
       await page.getByRole('button', { name: 'Focus draft' }).click();
       assert.equal(await page.getByLabel('Lifecycle draft').count(), 0);
       await page.getByRole('button', { name: 'Mount field' }).click();
+      assert.equal(await page.getByRole('status').textContent(), 'DOM подключён; ref доступен');
       await page.getByRole('button', { name: 'Focus draft' }).click();
       assert.equal(await page.getByLabel('Lifecycle draft').evaluate(node => node === document.activeElement), true);
       const lifecycle = await browser.newPage();

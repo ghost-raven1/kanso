@@ -101,3 +101,22 @@ it('rejects forwardRef renderers whose implicit function bindings would change',
     `const Field=forwardRef((props,ref)=><input/>,extra())`,
   ]) expect(()=>compile(`import {forwardRef} from '@kanso/core';${source}`)).toThrow(/KANSO_FORWARD_REF/);
 });
+
+it('runs layout effects after conditionally inserted DOM and before ordinary effects', async () => {
+  const app=await browserModule<{run(root:HTMLElement):()=>void;trace:string[]}>(`
+    import {useState,useRef,useLayoutEffect,useEffect} from '@kanso/core';import {mount} from '@kanso/core/client';export const trace=[];
+    function Field(){const ref=useRef(null);const[n,setN]=useState(0);
+      useEffect(()=>{trace.push('effect:'+n)},[n]);
+      useLayoutEffect(()=>{trace.push('layout:'+ref.current.isConnected+':'+ref.current.textContent)},[n]);
+      return <button ref={ref} onClick={()=>setN(v=>v+1)}>{n}</button>;
+    }
+    function App(){const[visible,setVisible]=useState(false);return <><button id="mount" onClick={()=>setVisible(v=>!v)}>toggle</button>{visible&&<Field/>}</>}
+    export const run=root=>mount(()=> <App/>,root);
+  `);
+  const dispose=app.run(document.body);
+  document.querySelector<HTMLButtonElement>('#mount')!.click();
+  expect(app.trace).toEqual(['layout:true:0','effect:0']);
+  document.querySelectorAll('button')[1].click();
+  expect(app.trace.slice(-2)).toEqual(['layout:true:1','effect:1']);
+  dispose();
+});

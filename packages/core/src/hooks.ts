@@ -1,5 +1,5 @@
 import {
-  createEffect, createMemo, createSignal, createUniqueId, getOwner, onCleanup, untrack,
+  createEffect, createReaction, createMemo, createSignal, createUniqueId, getOwner, onCleanup, untrack,
   type Accessor,
 } from 'solid-js';
 import type { DependencyList, StateSetter, Effect, RefObject } from './types.js';
@@ -34,14 +34,22 @@ export function effect(callback: Effect, dependencies?: Accessor<DependencyList>
   let previous: DependencyList = [];
   let cleanup: void | (() => void);
   onCleanup(() => cleanup?.());
-  createEffect(() => {
+  const run = () => {
     const next = dependencies?.();
     if (next && !first && sameDependencies(previous, next)) return;
     first = false;
     if (next) previous = [...next];
     untrack(() => { cleanup?.(); cleanup = undefined; });
     cleanup = dependencies ? untrack(callback) : callback();
-  }, undefined, { render: layout });
+  };
+  if (layout) { createEffect(run); return; }
+  // Layout effects share Solid's post-DOM phase. Ordinary effects invalidate a
+  // private runner in the next synchronous effect queue, after all layout work.
+  const [revision, setRevision] = createSignal(0);
+  const schedule = () => { setRevision(value => value + 1); };
+  const track = createReaction(schedule);
+  createEffect(() => { if (revision()) track(run); });
+  createEffect(schedule);
 }
 
 export function memoValue<T>(factory: () => T, dependencies?: Accessor<DependencyList>): Accessor<T> {
