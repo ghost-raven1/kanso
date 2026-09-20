@@ -5,7 +5,8 @@ import { hasKansoPlugin } from './vite-config.js';
 import { readConfigGraph } from './config-graph.js';
 import { readMicrofrontendsConfig } from './microfrontends.js';
 import { RUNTIME_VERSIONS } from '@kanso/microfrontends/manifest';
-import { dependsOnReact } from './project.js';
+import { createDependencyAudit, DependencyAuditError } from './dependency-audit.js';
+import { auditProjectImports } from './project-dependencies.js';
 import {
   installedPackage as installed,
   type PackageManifest as Manifest,
@@ -117,6 +118,8 @@ export async function doctor(
     );
   const solid = new Set<string>();
   const shared = new Map<string, Set<string>>();
+  const dependencies = createDependencyAudit();
+  let needsEntryAudit = false;
   const visited = new Set<string>();
   const inspect = async (item: {
     file: string;
@@ -155,17 +158,13 @@ export async function doctor(
   for (const item of manifests.values()) await inspect(item);
   for (const name of Object.keys(pkg.dependencies ?? {})) {
     try {
-      if (await dependsOnReact(root, name))
-        problem(
-          'REACT_DEPENDENCY',
-          `${name} requires React.`,
-          'Port or replace this dependency before running Kanso.',
-        );
+      if (await dependencies.risk(root, name) === 'optional') needsEntryAudit = true;
+      if (['react', 'react-dom'].includes(name)) await dependencies.check(root, name);
       await inspect(await installed(root, name));
     } catch (error) {
       problem(
-        'DEPENDENCY_AUDIT',
-        String(error),
+        error instanceof DependencyAuditError ? error.code : 'DEPENDENCY_AUDIT',
+        error instanceof Error ? error.message : String(error),
         'Install dependencies before running the audit.',
       );
     }
@@ -225,6 +224,23 @@ export async function doctor(
       String(error),
       'Use a statically inspectable configuration; see the migration guide.',
     );
+  }
+  const dependencyProblem = (file: string, error: unknown) => problem(
+    error instanceof DependencyAuditError ? error.code : 'DEPENDENCY_AUDIT',
+    error instanceof Error ? error.message : String(error),
+    'Use a verified vanilla entry with literal imports. Install missing packages; React hooks require a port.',
+    file,
+  );
+  // A subpath exception requires a source graph. Inspect conventional applications
+  // as well, including runtime imports installed under devDependencies.
+  if (needsEntryAudit || (await readdir(root)).includes('index.html')) {
+    try { await auditProjectImports(root, dependencies, dependencyProblem, inspectableConfig); }
+    catch (error) { dependencyProblem('package.json', error); }
+  }
+  for (const name of Object.keys(pkg.dependencies ?? {})) {
+    if (['react', 'react-dom'].includes(name)) continue;
+    try { await dependencies.declaration(root, name); }
+    catch (error) { dependencyProblem('package.json', error); }
   }
   return report;
 }

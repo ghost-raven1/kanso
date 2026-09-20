@@ -1,28 +1,15 @@
 import { readFile, readdir, writeFile, rename, rm, realpath } from 'node:fs/promises';
 import { resolve, relative, dirname, join } from 'node:path';
-import { isBuiltin } from 'node:module';
 import ts from 'typescript';
 import { migrateSource } from './source.js';
 import type { Change, Diagnostic, MigrationOptions, MigrationReport } from './types.js';
 import { createHookAudit } from './hook-audit.js';
 import { createProjectResolver, type ProjectResolver } from './resolver.js';
-import { installedPackage, kansoPackageVersion } from './packages.js';
+import { kansoPackageVersion } from './packages.js';
+import { createDependencyAudit, DependencyAuditError } from './dependency-audit.js';
+import { runtimeImports } from './runtime-imports.js';
 import { enableTsconfigPaths } from './vite-config.js';
 import { migrationEntries } from './entries.js';
-
-export async function dependsOnReact(root: string, name: string, seen = new Set<string>()): Promise<boolean> {
-  if (name.startsWith('@kanso/') || isBuiltin(name)) return false;
-  if (['react', 'react-dom'].includes(name)) return true;
-  let item;
-  try { item = await installedPackage(root, name); }
-  catch (error) { if (/^(?:@mui\/|antd$|styled-components$|react-|@react-)/.test(name)) return true; throw error; }
-  const { file, manifest: pkg } = item;
-  if (seen.has(file)) return false;
-  seen.add(file);
-  if (Object.keys(pkg.peerDependencies ?? {}).some(item => ['react', 'react-dom'].includes(item))) return true;
-  for (const child of Object.keys(pkg.dependencies ?? {})) if (await dependsOnReact(dirname(file), child, seen)) return true;
-  return false;
-}
 
 /** Audit first; commit only a fully checked change set, rolling back our own writes on failure. */
 export async function migrate(options: MigrationOptions): Promise<MigrationReport> {
@@ -54,11 +41,14 @@ export async function migrate(options: MigrationOptions): Promise<MigrationRepor
       error(config ? resolve(root, config) : root, message.match(/[A-Z_]+:/)?.[0].slice(0, -1) ?? 'CONFIG', message);
     }
   }
-  for (const name of Object.keys(pkg.dependencies ?? {})) {
-    try {
-      if (!['react', 'react-dom'].includes(name) && await dependsOnReact(root, name)) error(packageFile, 'REACT_DEPENDENCY', `${name} depends on React and must be replaced or ported.`);
-    } catch (caught) { error(packageFile, 'DEPENDENCY_AUDIT', String(caught)); }
-  }
+  const dependencies = createDependencyAudit();
+  const dependencyError = (file: string, caught: unknown) => {
+    const code = caught instanceof DependencyAuditError ? caught.code : 'DEPENDENCY_AUDIT';
+    if (code === 'DEPENDENCY_AUDIT') complete = false;
+    diagnostics.push({ file: relative(root, file), code, severity: 'error', message: caught instanceof Error ? caught.message : String(caught),
+      hint: 'Use a verified vanilla entry. Install missing dependencies and replace dynamic module loading with literal imports; React hooks require a port.',
+      docsUrl: 'https://github.com/ghost-raven1/kanso/blob/main/docs/migration.md#vanilla-dependencies' });
+  };
   const stage = (change: Change) => {
     const existing = changes.find(item => item.file === change.file);
     if (!existing) changes.push(change);
@@ -79,7 +69,10 @@ export async function migrate(options: MigrationOptions): Promise<MigrationRepor
       diagnostics.push(...result.diagnostics);
       if (result.diagnostics.some(item => item.code === 'DYNAMIC_IMPORT')) complete = false;
       if (before !== result.code) stage({ file: relative(root, file), before, after: result.code });
-      for (const specifier of result.imports) {
+      let runtime = new Set<string>();
+      try { runtime = new Set(runtimeImports(before, relative(root, file))); }
+      catch (caught) { dependencyError(file, caught); }
+      for (const specifier of new Set([...result.imports, ...runtime])) {
         try {
         const dependency = await resolver.resolve(file, specifier);
         if (specifier.startsWith('.') || dependency) {
@@ -87,10 +80,9 @@ export async function migrate(options: MigrationOptions): Promise<MigrationRepor
           else if (relative(root, dependency).startsWith('..')) { complete = false; error(file, 'EXTERNAL_SOURCE', `Audit shared source ${specifier} in its owning project first.`); }
           else await visit(dependency);
         }
-        else if (!['react', 'react-dom/client', 'vite', '@vitejs/plugin-react', '@vitejs/plugin-react-swc'].includes(specifier) && !specifier.startsWith('@kanso/') && !specifier.startsWith('node:')) {
-          const name = specifier.startsWith('@') ? specifier.split('/').slice(0, 2).join('/') : specifier.split('/')[0];
-          try { if (await dependsOnReact(root, name)) error(file, 'REACT_DEPENDENCY', `${specifier} depends on React and requires a port.`); }
-          catch (caught) { complete = false; error(file, 'DEPENDENCY_AUDIT', String(caught)); }
+        else if (runtime.has(specifier) && !['react', 'react-dom/client', 'vite', '@vitejs/plugin-react', '@vitejs/plugin-react-swc'].includes(specifier) && !specifier.startsWith('@kanso/') && !specifier.startsWith('node:')) {
+          try { await dependencies.check(dirname(file), specifier); }
+          catch (caught) { dependencyError(file, caught); }
         }
         } catch (caught) {
           complete = false;
@@ -105,6 +97,11 @@ export async function migrate(options: MigrationOptions): Promise<MigrationRepor
       for (const entry of entries) { entryFiles.add(entry); await visit(entry); }
     } catch (caught) { complete = false; error(root, 'ENTRY', caught instanceof Error ? caught.message : String(caught)); }
     for (const file of resolver.configFiles) await visit(file);
+  }
+  for (const name of Object.keys(pkg.dependencies ?? {})) {
+    if (['react', 'react-dom'].includes(name)) continue;
+    try { await dependencies.declaration(root, name); }
+    catch (caught) { dependencyError(packageFile, caught); }
   }
   for (const file of await readdir(root)) {
     if (/^tsconfig.*\.json$/.test(file)) {

@@ -27,6 +27,10 @@ export function migrateSource(source: string, file: string, approvedHooks: Reado
   const setterStates = new Map<t.Identifier, t.Identifier>();
   const customHooks = new Set<t.Identifier>();
   const binding = (scope: Scope, name: string) => scope.getBinding(name)?.identifier;
+  const checkReactEdge = (node: t.Node, value: t.Node | null | undefined) => {
+    if (t.isStringLiteral(value) && /^(?:react|react-dom)(?:\/|$)/.test(value.value))
+      report(node, 'REACT_IMPORT', 'React re-exports, require() and dynamic imports need an explicit ESM import port before migration.');
+  };
   const hookCandidates = new Set<t.Identifier>();
   const customObjects = new Set<t.Identifier>();
   const report = (node: t.Node, code: string, message: string, severity: 'error' | 'warning' = 'error') => {
@@ -110,13 +114,18 @@ export function migrateSource(source: string, file: string, approvedHooks: Reado
         : path.parentPath.isVariableDeclarator() && t.isIdentifier(path.parentPath.node.id) ? path.parentPath.node.id.name : '';
       if (/^use[A-Z]/.test(name)) { const id = binding(path.scope, name); if (id) customHooks.add(id); }
     },
-    ExportNamedDeclaration(path) { if (path.node.source) imports.push(path.node.source.value); },
-    ExportAllDeclaration(path) { imports.push(path.node.source.value); },
+    ExportNamedDeclaration(path) { if (path.node.source) { imports.push(path.node.source.value); checkReactEdge(path.node, path.node.source); } },
+    ExportAllDeclaration(path) { imports.push(path.node.source.value); checkReactEdge(path.node, path.node.source); },
+    TSImportEqualsDeclaration(path) {
+      if (t.isTSExternalModuleReference(path.node.moduleReference)) checkReactEdge(path.node, path.node.moduleReference.expression);
+    },
     CallExpression(path) {
       if (t.isImport(path.node.callee)) {
         if (t.isStringLiteral(path.node.arguments[0])) imports.push(path.node.arguments[0].value);
         else report(path.node, 'DYNAMIC_IMPORT', 'Computed imports cannot be audited automatically.');
+        checkReactEdge(path.node, path.node.arguments[0]);
       }
+      if (t.isIdentifier(path.node.callee, { name: 'require' }) && !path.scope.getBinding('require')) checkReactEdge(path.node, path.node.arguments[0]);
     },
   });
   traverse(ast, { Program(path) { path.scope.crawl(); } });

@@ -1,6 +1,12 @@
 # Проверка реализации — 20 сентября 2026
 
-Версия Kanso 0.7.1. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
+Версия Kanso 0.7.2. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
+
+## Аудит vanilla entries 0.7.2
+
+`tests/dependency-audit.test.ts` закрепляет aliases/barrels, optional и обязательные peers, runtime/type-only imports, ESM/CommonJS и package imports, условные exports, browser replacements, вложенные установки, циклы и блокировку неполного графа. Локально `npm run check` прошёл: 281/281 Vitest, TypeScript, production builds и отсутствие React/federation/HMR в обычном production-графе.
+
+`test:services` теперь устанавливает также упакованные CLI/Vite. На настоящем Zustand 5.0.15 проходят `migrate --check`, `--apply`, повторный apply без diff, `doctor`, новая установка, TypeScript и Vite build. Замена импорта на React entry даёт exit code 2 в обеих командах; package.json остаётся неизменным. После этого прежние packed SSR/hydration/navigation/cleanup сценарии проходят в Chromium и WebKit локально; Firefox включён в тот же сценарий CI. Отчёт с отдельной записью `packed-vanilla-audit` сохраняется в `output/services/results.json` и CI artifact.
 
 ## Исправление навигации 0.7.1
 
@@ -16,7 +22,7 @@
 
 Локально прошли `npm run check` (244/244 Vitest, TypeScript, production builds, dependency audit), stores/lab/compatibility/HMR/web в Chromium и WebKit и SEO CLI. Все три браузера проверяет отдельный CI-запуск для SHA выпуска.
 
-API описано в [руководстве](services.md). Поддержка runtime не означает автоматической миграции React hooks Zustand: пакетный аудит optional React peers пока остаётся консервативным.
+API описано в [руководстве](services.md). Поддержка runtime не означает автоматической миграции React hooks Zustand; проверка vanilla entries расширена в 0.7.2.
 
 ## Подготовка миграции 0.6.1
 

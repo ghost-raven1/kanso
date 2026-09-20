@@ -10,8 +10,9 @@
 
 | Диагностика | Следующее действие |
 | --- | --- |
+| `REACT_IMPORT` | Заменить React require/dynamic import/re-export явным поддерживаемым ESM import; namespace API проверить отдельно |
 | `REACT_DEPENDENCY` | Заменить/портировать библиотеку; адаптера React внутри Kanso нет |
-| `DEPENDENCY_AUDIT` | Установить зависимость, чтобы проверить её graph и peers |
+| `DEPENDENCY_AUDIT` | Установить зависимость и обеспечить статически проверяемый runtime entry |
 | `UNSUPPORTED_API` / `REACT_DOM` | Убрать/портировать API вне публичного контракта |
 | `CLASS_COMPONENT` | Переписать наследника React Component/PureComponent в функцию; обычные классы разрешены |
 | `STATE_SNAPSHOT` | Проверить повторные записи одного состояния и чтения этого состояния после setter |
@@ -73,4 +74,21 @@ Context поддерживает реактивный Provider.value; добав
 
 ## Внешнее состояние
 
-Начиная с 0.7 внешние stores с `getState` / `subscribe` можно подключать через `useStore`; `defineService` создаёт экземпляры на приложение и SSR-запрос. [Пример с Zustand vanilla](services.md). Перенос React hooks стороннего store выполняется явно. Пакетный аудит React peer dependencies пока консервативен и может блокировать vanilla subpath; автоматический мигратор не обещает перенести такой пакет.
+Начиная с 0.7 внешние stores с `getState` / `subscribe` можно подключать через `useStore`; `defineService` создаёт экземпляры на приложение и SSR-запрос. [Пример с Zustand vanilla](services.md). Перенос React hooks стороннего store выполняется явно. Проверенный vanilla entry пакета с optional React peer проходит аудит по правилам ниже.
+
+## Vanilla dependencies
+
+В 0.7.2 `migrate` и `doctor` различают используемые runtime entries пакетов с **необязательным** React peer. Например:
+
+```ts
+import { createStore } from 'zustand/vanilla'; // независимый store
+// import { useStore } from 'zustand';        // React hook: REACT_DEPENDENCY
+```
+
+Исключение выдаётся после проверки установленных JS-файлов выбранного entry. Учитываются статические imports, re-exports, литеральные `import()` и CommonJS `require()`, package imports и wildcard exports. Проверяются все runtime-ветки условий exports, включая browser/node/import/require/development/production, а также browser replacements. Это консервативная проверка: даже неактивная в текущей сборке React-ветка запрещает исключение. Правила [условных exports](https://nodejs.org/api/packages.html#conditional-exports) не сводятся к одному `main` или файлу типов.
+
+Проверка не исполняет код пакета или конфигурации. `import type` и декларации не считаются runtime-доказательством. Вычисляемые imports, `import.meta.glob`, динамический `require`, custom module loaders, отсутствующие targets и неподдерживаемые файлы дают `DEPENDENCY_AUDIT`; миграция ничего не записывает. Литеральные прямые imports позволяют сделать граф проверяемым.
+
+Успешная проверка одного subpath не разрешает остальные imports этого пакета. Обязательный React peer или React в dependencies по-прежнему блокирует миграцию. Неиспользуемый пакет с optional React peer проверяется по корневому entry: удалите ненужную зависимость, если он требует React. Общая проверка пакетов без optional React peers остаётся на уровне их manifests.
+
+`doctor` использует тот же source resolver, что и мигратор: HTML/статические Vite entries, aliases, tsconfig paths и barrels. Для исключения необходим проверяемый граф приложения. Это не автоматическая замена React hooks: перенесите binding на `@kanso/core` `useStore`, сохранив vanilla store. После review diff установите зависимости, выполните `doctor`, TypeScript, сборку и пользовательские сценарии.

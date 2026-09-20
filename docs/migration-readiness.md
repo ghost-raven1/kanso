@@ -15,11 +15,16 @@
 - `defineService` / `useService`: отдельный scope на приложение и SSR-запрос; общий доступ из loaders/actions; явные JSON-снимки для гидратации и навигации; отмена и cleanup.
 - Изолированный пример с настоящим `zustand/vanilla`, установка из npm pack, TypeScript, SSR, browser navigation и HMR потребителей. [Контракты и ограничения](services.md).
 
+## Добавлено в 0.7.2
+
+- Проверка runtime entries пакетов с optional React peers: проверенный vanilla subpath проходит `migrate` / `doctor`, React entry блокирует запись.
+- Общий resolver исходников, обход условных exports, статических ESM/CommonJS imports и browser replacements; непроверяемый граф остаётся ошибкой.
+- Изолированный packed-сценарий с Zustand: миграция без ручной правки исходников, идемпотентность, установка, TypeScript, production build и блокировка корневого React entry. [Границы аудита](migration.md#vanilla-dependencies).
+
 ## Следующие этапы
 
 | Приоритет | Что подготовить | Проверяемый результат |
 | --- | --- | --- |
-| P0.2 | Точный аудит vanilla subpath exports пакетов с optional React peer | Безопасный импорт проходит doctor; React entry остаётся блокирующей ошибкой |
 | P0.2 | Layout effects, component/callback refs, imperative handles, DOM event types и optional initial ref | DOM ref доступен в нужный момент; нет эффектов на сервере; очистка при unmount; типы currentTarget без any; совместимость с HMR проверена |
 | P0.2 | Чистые вычисления и destructuring в map callbacks | Замена объектов с прежними ключами обновляет строки; состояние/фокус сохраняются; неизвестная чистота по-прежнему диагностируется |
 | P0.3 | Необязательная Solid UI-основа: темы через CSS variables, Portal, доступные overlay primitives | SSR, обе темы, keyboard/focus trap/return, scroll lock, touch; без скрытого React и без обещания MUI clone |

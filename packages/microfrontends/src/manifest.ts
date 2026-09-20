@@ -1,6 +1,6 @@
 import satisfies from 'semver/functions/satisfies.js';
 
-export const RUNTIME_VERSIONS = { '@kanso/core': '0.7.1', '@kanso/app': '0.7.1', '@kanso/microfrontends': '0.7.1', 'solid-js': '1.9.15', '@solidjs/router': '0.16.3' } as const;
+export const RUNTIME_VERSIONS = { '@kanso/core': '0.7.2', '@kanso/app': '0.7.2', '@kanso/microfrontends': '0.7.2', 'solid-js': '1.9.15', '@solidjs/router': '0.16.3' } as const;
 export interface RemoteManifest {
   schema: 1;
   name: string;

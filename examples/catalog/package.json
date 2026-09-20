@@ -10,11 +10,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@kanso/core": "^0.7.1",
-    "@kanso/app": "^0.7.1"
+    "@kanso/core": "^0.7.2",
+    "@kanso/app": "^0.7.2"
   },
   "devDependencies": {
-    "@kanso/vite": "^0.7.1",
+    "@kanso/vite": "^0.7.2",
     "vite": "^8.3.0",
     "typescript": "^5.9.0"
   }

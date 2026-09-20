@@ -46,7 +46,7 @@ export interface ProjectResolver {
 /** Resolve source graphs and hook exports with the same paths, aliases and realpath rules. */
 export async function createProjectResolver(
   root: string,
-  options: { config?: string; inventory?: boolean } = {},
+  options: { config?: string; inventory?: boolean; inspectConfig?: (source: string, file: string) => string } = {},
 ): Promise<ProjectResolver> {
   const files = await readdir(root);
   const configs = files.filter(file => /^vite\.config\.[cm]?[jt]s$/.test(file));
@@ -61,7 +61,7 @@ export async function createProjectResolver(
   let entries: string[] | undefined;
   let entryRoot = root;
   if (configFile) try {
-    const graph = await readConfigGraph(configFile, configFiles);
+    const graph = await readConfigGraph(configFile, configFiles, options.inspectConfig);
     configFile = graph.file;
     configExport = graph.exportName;
     const { ast, config } = graph;

@@ -1,7 +1,7 @@
 import { readFile, realpath } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
-export const KANSO_VERSION = '0.7.1';
+export const KANSO_VERSION = '0.7.2';
 export const KANSO_PACKAGES = ['core', 'compiler', 'vite', 'app', 'cli', 'microfrontends', 'workers'] as const;
 
 /** Resolve all unpublished workspace packages consistently in generated projects. */
@@ -19,6 +19,12 @@ export interface PackageManifest {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
+  peerDependenciesMeta?: Record<string, { optional?: boolean }>;
+  exports?: unknown;
+  imports?: Record<string, unknown>;
+  main?: string;
+  module?: string;
+  browser?: string | Record<string, string | false>;
 }
 
 /** Inspect installed npm packages even when their exports intentionally hide the manifest or root. */

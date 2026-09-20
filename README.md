@@ -2,7 +2,7 @@
 
 React-shaped TSX. Solid reactivity. No React runtime.
 
-Рабочая реализация **0.7.1**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO, микрофронты, внешние stores и сервисы на приложение/SSR-запрос, необязательные инструменты Web/Service Workers. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Совместимость с React-зависимыми библиотеками не предоставляется.
+Рабочая реализация **0.7.2**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO, микрофронты, внешние stores и сервисы на приложение/SSR-запрос, необязательные инструменты Web/Service Workers. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Совместимость с React-зависимыми библиотеками не предоставляется.
 
 ```tsx
 import { useState, useEffect } from '@kanso/core';
@@ -191,7 +191,7 @@ node packages/cli/dist/bin.js migrate --apply --root ../my-react-app --local "$P
 
 После установки опубликованного CLI команды имеют форму `kanso migrate --check` и `kanso migrate --apply`.
 
-Проверка обходит граф от entry в `index.html`, статические импорты, re-exports, literal dynamic imports и конфигурацию Vite. Проверяет установленные runtime-зависимости и их React peers. Неизвестные зависимости сначала нужно установить для аудита.
+Проверка обходит граф от entry в `index.html`, статические импорты, re-exports, literal dynamic imports и конфигурацию Vite. Проверяет установленные runtime-зависимости и их React peers. Неизвестные зависимости сначала нужно установить для аудита. В 0.7.2 проверенный vanilla entry пакета с optional React peer, например `zustand/vanilla`, проходит проверку; React entry того же пакета остаётся ошибкой.
 
 Применение меняет импорты, поддерживаемые типы, клиентский entry, Vite, TypeScript и package.json. Повторный запуск не создаёт новых изменений. При блокирующей диагностике ни один файл приложения не записывается. Lockfile обновляется последующим `npm install`, затем следует выполнить проверки самого приложения.
 
@@ -271,9 +271,9 @@ npm run bench            # production Kanso/Solid/React/memo/React Compiler
 Linux-проверка всех браузеров, в том числе при проблеме запуска Firefox на macOS 27:
 
 ```bash
-docker build -f Dockerfile.test -t kanso-test:0.7.1 .
+docker build -f Dockerfile.test -t kanso-test:0.7.2 .
 mkdir -p output/linux
-docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.7.1
+docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.7.2
 ```
 
 Результаты и скриншоты сохраняются в `output/`. Исходные условия и результаты замеров — в [отчёте](docs/validation.md). CI описан в `.github/workflows/ci.yml`.
