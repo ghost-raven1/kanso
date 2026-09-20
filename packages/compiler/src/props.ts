@@ -23,7 +23,7 @@ export function transformProps(context: TransformContext): void {
 export function transformLocalProps(context: TransformContext): void {
   context.program.traverse({ VariableDeclarator(path) {
     const { id, init } = path.node;
-    if (!isSetup(path) || !(t.isObjectPattern(id) || t.isArrayPattern(id)) || !init || !t.isExpression(init)) return;
+    if (!isSetup(path, context) || !(t.isObjectPattern(id) || t.isArrayPattern(id)) || !init || !t.isExpression(init)) return;
     if (t.isCallExpression(init) && t.isIdentifier(init.callee) && [...context.helpers.values()].some(value => value.name === (init.callee as t.Identifier).name)) return;
     if (!(t.isIdentifier(init) && tracked(context, path.scope, init.name, 'props')) && !hasReactive(path.get('init'), context)) return;
     if (!path.parentPath.isVariableDeclaration({ kind: 'const' })) throw path.buildCodeFrameError('KANSO_PROPS: destructure live values with const.');

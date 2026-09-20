@@ -28,7 +28,7 @@ export async function migrate(options: MigrationOptions): Promise<MigrationRepor
   const resolvers: ProjectResolver[] = [];
   for (const config of options.configs?.length ? options.configs : [undefined]) {
     try {
-      const resolver = await createProjectResolver(root, { config, inventory: true });
+      const resolver = await createProjectResolver(root, { config, inventory: true, sourceAliases: options.sourceAliases });
       resolvers.push(resolver);
       resolver.configFiles.forEach(file => configFiles.add(file));
       if (resolver.configError) {
@@ -41,6 +41,7 @@ export async function migrate(options: MigrationOptions): Promise<MigrationRepor
       error(config ? resolve(root, config) : root, message.match(/[A-Z_]+:/)?.[0].slice(0, -1) ?? 'CONFIG', message);
     }
   }
+  if (Object.keys(options.sourceAliases ?? {}).length) diagnostics.push({ file: '.', code: 'SOURCE_ALIAS_PORT', severity: options.apply ? 'error' : 'warning', message: 'Source mappings extend the audit only. Port these federation imports and their runtime configuration before applying migration.' });
   const dependencies = createDependencyAudit();
   const dependencyError = (file: string, caught: unknown) => {
     const code = caught instanceof DependencyAuditError ? caught.code : 'DEPENDENCY_AUDIT';

@@ -67,7 +67,7 @@ export function transformCustomCalls(context: TransformContext): void {
       if (binding?.path.isImportNamespaceSpecifier() || binding?.path.isImportDefaultSpecifier()) throw path.buildCodeFrameError('KANSO_HOOK_NAMESPACE: use a named hook import.');
     }
     if (!t.isIdentifier(path.node.callee) || !customBinding(path.scope.getBinding(path.node.callee.name))) return;
-    if (!isSetup(path)) throw path.buildCodeFrameError('KANSO_HOOK_SCOPE: call custom hooks during component or hook setup.');
+    if (!isSetup(path, context)) throw path.buildCodeFrameError('KANSO_HOOK_SCOPE: call custom hooks during component or hook setup.');
     const owner = path.getFunctionParent();
     for (let parent = path.parentPath; parent && parent !== owner; parent = parent.parentPath!) {
       if (parent.isIfStatement() || parent.isConditionalExpression() || parent.isLogicalExpression() || parent.isSwitchStatement() || parent.isLoop()) throw path.buildCodeFrameError('KANSO_HOOK_ORDER: custom hooks cannot be conditional.');

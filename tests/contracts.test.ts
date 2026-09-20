@@ -63,7 +63,7 @@ it('effect cleanup precedes reruns, explicit dependencies ignore other reads', a
 
 it('accepts keyed block returns and rejects unknown purity and unsafe list setup', () => {
   expect(compile('export function App({items}){return <ul>{items.map(item=>{return <li key={item.id}>{item.name}</li>})}</ul>}').code).toContain('__Keyed');
-  expect(() => compile('export function App({items}){return <ul>{items.map(item=>{const x=item.name;return <li key={item.id}>{x}</li>})}</ul>}')).toThrow('KANSO_LIST_BODY');
+  expect(() => compile('export function App({items}){return <ul>{items.map(item=>{const x=unknown(item);return <li key={item.id}>{x}</li>})}</ul>}')).toThrow('KANSO_LIST_BODY');
   expect(() => compile("import{useState}from'@kanso/core';function App(){const[n]=useState(0);const x=n+unknown();return <p>{x}</p>}")).toThrow('KANSO_PURITY');
   expect(() => compile("import{useState}from'@kanso/core';function App(){const[n]=useState(0);const x=n+Math.random();return <p>{x}</p>}")).toThrow('KANSO_PURITY');
 });

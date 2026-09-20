@@ -7,6 +7,7 @@ export interface TransformContext {
   helpers: Map<string, t.Identifier>;
   reactive: Set<t.Identifier>;
   props: Set<t.Identifier>;
+  rows: Set<t.Function>;
 }
 
 export function helper(context: TransformContext, name: string): t.Identifier {
@@ -49,9 +50,10 @@ export function hasReactive(path: NodePath<t.Node | null | undefined>, context: 
 }
 
 /** Only computation scopes are lifted. Handler locals retain ordinary snapshot semantics. */
-export function isSetup(path: NodePath): boolean {
+export function isSetup(path: NodePath, context?: TransformContext): boolean {
   const fn = path.getFunctionParent();
   if (!fn) return false;
+  if (context?.rows.has(fn.node)) return true;
   const name = (fn.isFunctionDeclaration() || fn.isFunctionExpression()) ? fn.node.id?.name
     : fn.parentPath.isVariableDeclarator() && t.isIdentifier(fn.parentPath.node.id) ? fn.parentPath.node.id.name : '';
   return !!name && (/^[A-Z]/.test(name) || /^use[A-Z]/.test(name));
@@ -64,6 +66,7 @@ export function isPureExpression(path: NodePath<t.Node | null | undefined>, cont
     const node = child.node;
     if (t.isAssignmentExpression(node) || t.isUpdateExpression(node) || t.isAwaitExpression(node) || t.isNewExpression(node)) pure = false;
     if (!t.isCallExpression(node)) return;
+    if (t.isIdentifier(node.callee) && ['Boolean', 'String', 'Number'].includes(node.callee.name) && !child.scope.hasBinding(node.callee.name, true)) return;
     if (t.isIdentifier(node.callee) && importedName(context, child.scope, node.callee.name) === 'routeUrl') return;
     if (t.isIdentifier(node.callee) && tracked(context, child.scope, node.callee.name, 'reactive') && node.arguments.length === 0) return;
     if (t.isMemberExpression(node.callee) && t.isIdentifier(node.callee.property) && !node.callee.computed &&

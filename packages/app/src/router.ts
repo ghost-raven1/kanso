@@ -1,6 +1,6 @@
 import { createComponent, createResource, createSignal, ErrorBoundary, onCleanup, Show, Suspense, useContext, type Component } from 'solid-js';
 import { Router, useBeforeLeave, useLocation, type RouteDefinition, type RouteSectionProps } from '@solidjs/router';
-import { Dynamic } from 'solid-js/web';
+import { RouteRecovery } from './recovery.js';
 import { createRouteData, DataContext, RouteIdContext } from './data.js';
 import type { Bootstrap, Route } from './types.js';
 import { HeadContext, SeoProvider, SeoScopeContext, type HeadRegistry } from './seo/registry.js';
@@ -21,7 +21,7 @@ const toRouterRoutes = (routes: Route[], cache: WeakMap<Route, RouteDefinition>)
     value: route.id,
     get children() {
       return createComponent(SeoScopeContext.Provider, { value: route.id, get children() { return createComponent(ErrorBoundary, {
-        fallback: error => { if (isServer && error?.name === 'RemoteError') throw error; return route.error ? createComponent(route.error, { error }) : createComponent(Dynamic, { component: 'p', role: 'alert', children: 'Unable to load this route.' }); },
+        fallback: error => { if (isServer && error?.name === 'RemoteError') throw error; return route.error ? createComponent(route.error, { error }) : createComponent(RouteRecovery, { error }); },
         get children() {
           return createComponent(Suspense, {
             get fallback() { return route.pending ? createComponent(route.pending, {}) : 'Loading…'; },
@@ -77,7 +77,12 @@ export function App(props: AppProps) {
     const data = createRouteData(() => location.pathname + location.search, props.bootstrap, prepare, services);
     const Content = () => {
       const head = useContext(HeadContext);
-      if (head) head.setSource(() => routeSeoLevels(routes(), data.snapshot(), location.pathname + location.search, head.config));
+      if (head) head.setSource(() => {
+        let snapshot: Bootstrap | undefined;
+        // A failed navigation belongs to the route boundary, not the global head effect.
+        try { snapshot = data.snapshot(); } catch (error) { if (isServer) throw error; return undefined; }
+        return routeSeoLevels(routes(), snapshot, location.pathname + location.search, head.config);
+      });
       return createComponent(DataContext.Provider, { value: data, get children() { return root.children; } });
     };
     return props.seo ? createComponent(SeoProvider, { config: props.seo, registry: props.head, get children() { return createComponent(Content, {}); } }) : createComponent(Content, {});

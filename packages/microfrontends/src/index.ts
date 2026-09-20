@@ -47,7 +47,7 @@ export function defineRemote<C extends RemoteContract>(options: RemoteOptions): 
             if (error instanceof Error && error.name === 'RemoteError') session.renderError ??= error;
             throw error;
           }
-          return settings.error ? createComponent(settings.error, { error, retry: reset }) : createComponent(Dynamic, { component: 'button', type: 'button', onClick: error?.status === 409 ? () => window.location.reload() : reset, children: error?.status === 409 ? 'This release is unavailable. Reload page' : 'Unable to load this section. Retry' });
+          return settings.error ? createComponent(settings.error, { error, retry: reset }) : createComponent(Dynamic, { component: 'button', type: 'button', onClick: (error?.status === 409 || ['MF_RUNTIME_MISMATCH', 'MF_SHARED_MISMATCH'].includes(error?.code)) ? () => window.location.reload() : reset, children: (error?.status === 409 || ['MF_RUNTIME_MISMATCH', 'MF_SHARED_MISMATCH'].includes(error?.code)) ? 'This release is unavailable. Reload page' : 'Unable to load this section. Retry' });
         }, get children() { return createComponent(View, {}); } });
         if (settings.ssr !== false) return createComponent(Boundary, {});
         const [mounted, setMounted] = createSignal(false);

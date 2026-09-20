@@ -28,6 +28,7 @@ async function scenario(page, kind) {
     await page.getByLabel('Name').fill('Kanso'); await page.getByRole('button', { name: 'Theme' }).click();
     assert.equal(await page.locator('[data-name]').textContent(), 'Kanso'); assert.equal(await page.locator('[data-theme]').textContent(), 'dark');
     await page.getByRole('button', { name: 'Focus' }).click(); assert.equal(await page.getByLabel('Name').evaluate(node => node === document.activeElement), true);
+    assert.equal(await page.getByLabel('Name').getAttribute('data-attached'), 'true');
     await page.getByLabel('Draft', { exact: true }).fill('Unsaved');
     await page.getByRole('button', { name: 'Reset draft' }).click();
     assert.equal(await page.getByLabel('Draft', { exact: true }).inputValue(), '');
@@ -148,6 +149,19 @@ try {
             } finally { await native.close(); }
             results.push({ template, phase, browser: name, passed: true });
           } finally { await browser.close(); }
+        }
+        if (phase === 'production') {
+          const manifestFile = join(root, 'dist/kanso-manifest.json');
+          const before = await readFile(manifestFile, 'utf8');
+          try {
+            await writeFile(manifestFile, JSON.stringify({ ...JSON.parse(before), buildId: 'different-build' }));
+            const stale = await fetch('http://127.0.0.1:4181');
+            assert.equal(stale.status, 503);
+            assert.equal(stale.headers.get('Cache-Control'), 'no-store');
+            assert.match(await stale.text(), /Restart the preview/);
+            assert.equal((await fetch('http://127.0.0.1:4181', { method: 'HEAD' })).status, 503);
+          } finally { await writeFile(manifestFile, before); }
+          assert.equal((await fetch('http://127.0.0.1:4181')).status, 200);
         }
         await stop(server); server = undefined;
       }

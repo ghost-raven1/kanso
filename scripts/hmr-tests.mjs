@@ -121,7 +121,23 @@ try {
       await updateFile(page, join(root, 'src/App.tsx'), keyedSource.replace('{id}:', '{id} updated:'));
       await page.waitForFunction(() => document.querySelector('[data-key]')?.textContent === 'B updated: 1');
       assert.deepEqual(await page.locator('[data-key]').allTextContents(), ['B updated: 1', 'A updated: 2']);
-      results.push({ browser: name, services: true, context: true, keyed: true, jsx: true, hooks: true, reducer: true, refs: true, ids: true, isolation: true, cleanup: true, reset: true, errorRecovery: true, unmount: true });
+      const forwardedSource = `import {forwardRef,useImperativeHandle,useLayoutEffect,useRef,useState} from '@kanso/core';
+        const Field=forwardRef((props,ref)=>{const input=useRef(null);const[count,setCount]=useState(0);
+          useLayoutEffect(()=>{window.layoutActive=(window.layoutActive??0)+1;return()=>window.layoutActive--},[]);
+          useImperativeHandle(ref,()=>({focus:()=>input.current.focus()}),[]);
+          return <section><input ref={input}/><button data-forward onClick={()=>setCount(v=>v+1)}>Before: {count}</button></section>});
+        export function App(){const a=useRef(null);const b=useRef(null);return <><Field ref={a}/><Field ref={b}/><button data-forward-focus onClick={()=>a.current.focus()}>Focus handle</button></>}`;
+      await updateFile(page, join(root, 'src/App.tsx'), forwardedSource);
+      await page.locator('[data-forward]').first().click();
+      await page.locator('[data-forward]').first().click();
+      await page.locator('[data-forward]').last().click();
+      await updateFile(page, join(root, 'src/App.tsx'), forwardedSource.replace('Before:', 'After:'));
+      await page.waitForFunction(() => document.querySelector('[data-forward]')?.textContent === 'After: 2');
+      assert.deepEqual(await page.locator('[data-forward]').allTextContents(), ['After: 2', 'After: 1']);
+      assert.equal(await page.evaluate(() => window.layoutActive), 2);
+      await page.locator('[data-forward-focus]').click();
+      assert.equal(await page.locator('input').first().evaluate(node => node === document.activeElement), true);
+      results.push({ browser: name, forwardedRefs: true, layoutEffects: true, services: true, context: true, keyed: true, jsx: true, hooks: true, reducer: true, refs: true, ids: true, isolation: true, cleanup: true, reset: true, errorRecovery: true, unmount: true });
       console.log(`Stateful HMR passed: ${name}`);
     } catch (error) {
       console.error('HMR failure:', name, { messages: messages.slice(-25), events: server.logs().split('\n').filter(line => /hmr|reload/.test(line)), server: server.logs().slice(-1500), html: (await page.content()).slice(-4000) });

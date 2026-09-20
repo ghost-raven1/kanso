@@ -4,6 +4,8 @@ import { microfrontends } from './remotes';
 import { seo } from './seo';
 import type { RemoteSource } from '@kanso/app/integration';
 
+export const buildId = import.meta.env.KANSO_HOST_BUILD_ID;
+
 export function createHandler(
   assets: { entry: string; styles?: string[] },
   remoteSources?: Record<string, RemoteSource>,
@@ -13,7 +15,7 @@ export function createHandler(
     microfrontends,
     seo,
     assets,
-    buildId: import.meta.env.KANSO_HOST_BUILD_ID,
+    buildId,
     remoteSources: {
       catalog: {
         manifest: `${process.env.KANSO_CATALOG_SERVER_ORIGIN ?? 'http://127.0.0.1:4301'}/releases/{buildId}/kanso-server.json`,

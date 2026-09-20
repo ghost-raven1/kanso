@@ -1,8 +1,9 @@
+import { bindPattern } from './patterns.js';
 import type { NodePath } from '@babel/traverse';
 import * as t from '@babel/types';
 import { helper, replaceReads, hasReactive, importedName, isSetup, isPureExpression, type TransformContext } from './context.js';
 
-const names: Record<string, string> = { useState: '__state', useReducer: '__reducer', useEffect: '__effect', useMemo: '__memo', useCallback: '__callback', useContext: '__context', useStore: '__store' };
+const names: Record<string, string> = { useState: '__state', useReducer: '__reducer', useEffect: '__effect', useLayoutEffect: '__layoutEffect', useImperativeHandle: '__imperativeHandle', useMemo: '__memo', useCallback: '__callback', useContext: '__context', useStore: '__store' };
 
 export function transformHooks(context: TransformContext): void {
   context.program.traverse({
@@ -13,7 +14,7 @@ export function transformHooks(context: TransformContext): void {
       if (!name || !names[name] && !['useRef', 'useId', 'useService'].includes(name)) return;
       const binding = path.scope.getBinding(local);
       if (!binding?.path.isImportSpecifier()) return;
-      if (!isSetup(path)) throw path.buildCodeFrameError('KANSO_HOOK_SCOPE: hooks belong in a component or a compiled useX function.');
+      if (!isSetup(path, context)) throw path.buildCodeFrameError('KANSO_HOOK_SCOPE: hooks belong in a component or a compiled useX function.');
       const owner = path.getFunctionParent();
       for (let parent = path.parentPath; parent && parent !== owner; parent = parent.parentPath!) {
         if (parent.isIfStatement() || parent.isConditionalExpression() || parent.isLogicalExpression() || parent.isSwitchStatement() || parent.isLoop()) throw path.buildCodeFrameError('KANSO_HOOK_ORDER: move conditional hooks into a child component.');
@@ -30,12 +31,21 @@ export function transformHooks(context: TransformContext): void {
         }
       }
       if (name === 'useState' && args.length === 0) args.push(t.identifier('undefined'));
-      if (['useEffect', 'useMemo', 'useCallback'].includes(name) && args[1]) {
+      if (name === 'useImperativeHandle') {
+        if (!t.isExpression(args[0]) || !t.isExpression(args[1])) throw path.buildCodeFrameError('KANSO_REF: provide a ref and a handle factory.');
+        args[0] = t.arrowFunctionExpression([], args[0]);
+        if (args[2]) {
+          if (!t.isArrayExpression(args[2])) throw path.buildCodeFrameError('KANSO_DEPENDENCIES: use an inline dependency array.');
+          args[2] = t.arrowFunctionExpression([], args[2]);
+        }
+        return;
+      }
+      if (['useEffect', 'useLayoutEffect', 'useMemo', 'useCallback'].includes(name) && args[1]) {
         if (!t.isArrayExpression(args[1])) throw path.buildCodeFrameError('KANSO_DEPENDENCIES: use an inline dependency array.');
         args[1] = t.arrowFunctionExpression([], args[1]);
       }
       if (name === 'useCallback' && t.isExpression(args[0])) args[0] = t.arrowFunctionExpression([], args[0]);
-      if (name === 'useEffect') return;
+      if (['useEffect', 'useLayoutEffect'].includes(name)) return;
       const declaration = path.parentPath;
       if (!declaration.isVariableDeclarator()) throw path.buildCodeFrameError('KANSO_HOOK_BINDING: assign the hook to a const binding.');
       if (!declaration.parentPath.isVariableDeclaration({ kind: 'const' })) throw path.buildCodeFrameError('KANSO_HOOK_BINDING: assign hooks to const.');
@@ -65,9 +75,16 @@ export function transformDerived(context: TransformContext): void {
   context.program.traverse({
     VariableDeclarator(path) {
       const { id, init } = path.node;
-      if (!isSetup(path) || !t.isIdentifier(id) || !init || !t.isExpression(init)) return;
+      if (!isSetup(path, context) || !init || !t.isExpression(init)) return;
       if (t.isFunction(init) || t.isCallExpression(init) && t.isIdentifier(init.callee)
         && [...context.helpers.values()].some(value => value.name === (init.callee as t.Identifier).name)) return;
+      if ((t.isObjectPattern(id) || t.isArrayPattern(id)) && hasReactive(path.get('init'), context)) {
+        if (!path.parentPath.isVariableDeclaration({ kind: 'const' })) throw path.buildCodeFrameError('KANSO_PROPS: destructure live values with const.');
+        path.replaceWithMultiple(bindPattern(context, path, id, init));
+        path.scope.crawl();
+        return;
+      }
+      if (!t.isIdentifier(id)) return;
       if (!hasReactive(path.get('init'), context)) return;
       if (path.parentPath.isVariableDeclaration() && path.parentPath.node.kind !== 'const') throw path.buildCodeFrameError('KANSO_DERIVED_CONST: derived values must use const.');
       if (!isPureExpression(path.get('init'), context)) throw path.buildCodeFrameError('KANSO_PURITY: cannot prove this derived expression pure; use useMemo for a pure calculation or useEffect for side effects.');

@@ -21,12 +21,17 @@
 - Общий resolver исходников, обход условных exports, статических ESM/CommonJS imports и browser replacements; непроверяемый граф остаётся ошибкой.
 - Изолированный packed-сценарий с Zustand: миграция без ручной правки исходников, идемпотентность, установка, TypeScript, production build и блокировка корневого React entry. [Границы аудита](migration.md#vanilla-dependencies).
 
+## Добавлено в 0.8.0
+
+- [Layout effects, forwarded refs, imperative handles, типы нативных событий](lifecycle.md), очистка callback refs и optional initial ref.
+- Чистые const-вычисления и вложенная деструктуризация map callbacks; замена объектов, фокус, snapshot-локальные переменные и HMR покрыты сценариями.
+- Прямые callbacks конфигурации, безопасные URL helpers и явные source mappings для аудита federation imports; запись остаётся заблокированной до порта remote runtime.
+- Явное восстановление после несовместимой смены runtime; защита actions build ID оболочки. Preview обнаруживает смену файлов сборки и требует перезапуска.
+
 ## Следующие этапы
 
 | Приоритет | Что подготовить | Проверяемый результат |
 | --- | --- | --- |
-| P0.2 | Layout effects, component/callback refs, imperative handles, DOM event types и optional initial ref | DOM ref доступен в нужный момент; нет эффектов на сервере; очистка при unmount; типы currentTarget без any; совместимость с HMR проверена |
-| P0.2 | Чистые вычисления и destructuring в map callbacks | Замена объектов с прежними ключами обновляет строки; состояние/фокус сохраняются; неизвестная чистота по-прежнему диагностируется |
 | P0.3 | Необязательная Solid UI-основа: темы через CSS variables, Portal, доступные overlay primitives | SSR, обе темы, keyboard/focus trap/return, scroll lock, touch; без скрытого React и без обещания MUI clone |
 | P0.3 | Тестовый harness: render/cleanup, reactive props, router/services providers | Одни сценарии запускаются до и после переноса; queries и browser tests сохраняются; React act не имитируется |
 | P1 | History/search/scroll и dirty navigation guard; контроллер форм для существующего HTTP API | Back/forward и replace сохраняют ожидаемый URL/state; draft не теряется; validation/reset, upload progress/cancel и частичные ошибки проверены |

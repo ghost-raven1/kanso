@@ -3,12 +3,14 @@ import { readFile, stat } from 'node:fs/promises';
 import { resolve, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { nodeHandler } from '@kanso/app/node';
-import { createHandler } from './dist-server/server.js';
+import { createHandler, buildId } from './dist-server/server.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const manifest = JSON.parse(
   await readFile(resolve(root, 'dist/kanso-manifest.json'), 'utf8'),
 );
+if (manifest.buildId !== buildId)
+  throw new Error('Server/client build mismatch. Run npm run build:example.');
 const port = Number(process.env.PORT ?? 4173);
 const handle = nodeHandler(
   createHandler({ entry: manifest.entries[0], styles: manifest.styles }),
@@ -21,6 +23,24 @@ const types = {
   '.map': 'application/json',
 };
 const server = createServer(async (request, response) => {
+  try {
+    const current = JSON.parse(
+      await readFile(resolve(root, 'dist/kanso-manifest.json'), 'utf8'),
+    );
+    if (current.buildId !== manifest.buildId) throw new Error('changed');
+  } catch {
+    response
+      .writeHead(503, {
+        'Cache-Control': 'no-store',
+        'Content-Type': 'text/plain; charset=utf-8',
+      })
+      .end(
+        request.method === 'HEAD'
+          ? undefined
+          : 'Build changed. Restart the preview server to load the new release.',
+      );
+    return;
+  }
   const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
   if (pathname === '/og.png') {
     const image = await readFile(resolve(root, 'dist/og.png'));

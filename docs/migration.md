@@ -92,3 +92,24 @@ import { createStore } from 'zustand/vanilla'; // независимый store
 Успешная проверка одного subpath не разрешает остальные imports этого пакета. Обязательный React peer или React в dependencies по-прежнему блокирует миграцию. Неиспользуемый пакет с optional React peer проверяется по корневому entry: удалите ненужную зависимость, если он требует React. Общая проверка пакетов без optional React peers остаётся на уровне их manifests.
 
 `doctor` использует тот же source resolver, что и мигратор: HTML/статические Vite entries, aliases, tsconfig paths и barrels. Для исключения необходим проверяемый граф приложения. Это не автоматическая замена React hooks: перенесите binding на `@kanso/core` `useStore`, сохранив vanilla store. После review diff установите зависимости, выполните `doctor`, TypeScript, сборку и пользовательские сценарии.
+
+## Сложные конфиги и source mappings (0.8.0)
+
+Мигратор читает прямые object-returning callbacks `defineConfig(({ command }) => ({ … }))`, сохраняя callback в результате. Значение `base` может зависеть от command/env: оно сохраняется без вычисления и не выбирает исходные модули. `root`, entries и aliases должны оставаться статически разрешимыми. Проверка графа не подтверждает правильность deployment-настроек. Импорты `URL`/`fileURLToPath` из `node:url` и локальные чистые однопараметрические helper-функции поддерживаются:
+
+```ts
+const source = (path: string) => fileURLToPath(new URL(path, import.meta.url));
+```
+
+Конфиг не исполняется. Многошаговые helpers, циклы, затенённые функции, computed aliases, динамический граф и исполняемые top-level statements продолжают блокировать запись. Для разных приложений явно задавайте `--config` и `--entry`.
+
+Для обследования federation-кода можно сопоставить удалённый импорт доступному исходнику:
+
+```bash
+kanso migrate --check --entry src/main.tsx \
+  --source-alias account/hooks=./src/account/hooks.ts --json
+```
+
+Это точное сопоставление одного specifier, общее для обхода исходников и проверки custom hooks. Файл остаётся в графе с настоящим filesystem path. Сопоставления не конвертируют federation runtime и не меняют импорты. `--apply` с source mappings блокируется диагностикой `SOURCE_ALIAS_PORT`, пока пользователь не перенесёт runtime-конфигурацию и реальные imports. Неполный граф и React-зависимые библиотеки по-прежнему блокируют миграцию.
+
+Поддержаны [layout-эффекты, component refs, imperative handles и чистые вычисления в map](lifecycle.md). Мигратор не угадывает snapshot-семантику и не переносит произвольные React-библиотеки.

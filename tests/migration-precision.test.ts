@@ -61,3 +61,12 @@ describe('migration binding precision', () => {
     ).toContain('STATE_SNAPSHOT');
   });
 });
+
+it('blocks synthetic event members but accepts native event types and shadowed ordinary objects', () => {
+  const blocked = migrateSource(`import type {ChangeEvent} from 'react';export function App(){const change=(event:ChangeEvent<HTMLInputElement>)=>event.persist();return <input onChange={change}/>} `, 'App.tsx');
+  expect(blocked.diagnostics.some(item=>item.code==='SYNTHETIC_EVENT')).toBe(true);
+  const inline = migrateSource(`export function App(){return <input onChange={event=>event.nativeEvent}/>} `, 'App.tsx');
+  expect(inline.diagnostics.some(item=>item.code==='SYNTHETIC_EVENT')).toBe(true);
+  const native = migrateSource(`import type {ChangeEvent} from 'react';export function App(){const change=(event:ChangeEvent<HTMLInputElement>)=>event.currentTarget.value;const nested=(event:{persist():void})=>event.persist();return <input onChange={change}/>} `, 'App.tsx');
+  expect(native.diagnostics).toEqual([]);
+});

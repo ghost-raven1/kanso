@@ -77,7 +77,16 @@ export function staticViteConfig(
   file: string,
   exportName = 'default',
 ): { ast: t.File; config: t.ObjectExpression } {
-  const { ast, value: config } = readConfigExport(source, file, exportName);
+  const { ast, value } = readConfigExport(source, file, exportName);
+  if (ast.program.body.some(statement => t.isThrowStatement(statement) || t.isExpressionStatement(statement) && !t.isStringLiteral(statement.expression) || t.isIfStatement(statement) || t.isLoop(statement)))
+    throw new Error('VITE_CONFIG_DYNAMIC: move top-level executable configuration into a manually reviewed config.');
+  let config = value;
+  if (t.isArrowFunctionExpression(config) || t.isFunctionExpression(config)) {
+    if (config.async || config.generator) throw new Error('VITE_CONFIG_DYNAMIC: async/generator configuration requires a manual port.');
+    const body = config.body;
+    config = t.isBlockStatement(body) ? body.body.length === 1 && t.isReturnStatement(body.body[0]) ? body.body[0].argument ?? undefined : undefined : body;
+
+  }
   if (
     !t.isObjectExpression(config) ||
     config.properties.some(item => t.isSpreadElement(item) || item.computed)

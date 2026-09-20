@@ -37,17 +37,41 @@ export async function servePlatform({
         }),
       );
     }
-    const { createHandler } = await import(
+    const { createHandler, buildId } = await import(
       pathToFileURL(path.join(root, 'host/dist-server/server.js')).href
     );
     const assets = JSON.parse(
       await readFile(path.join(root, 'host/dist/kanso-manifest.json'), 'utf8'),
     );
+    if (assets.buildId !== buildId)
+      throw new Error('Shell server/client build mismatch. Rebuild the shell.');
     const handler = nodeHandler(
       createHandler({ entry: assets.entries[0], styles: assets.styles }),
       `http://127.0.0.1:${hostPort}`,
     );
     const host = http.createServer(async (request, response) => {
+      try {
+        const current = JSON.parse(
+          await readFile(
+            path.join(root, 'host/dist/kanso-manifest.json'),
+            'utf8',
+          ),
+        );
+        if (current.buildId !== assets.buildId) throw new Error('changed');
+      } catch {
+        response
+          .writeHead(503, {
+            'Cache-Control': 'no-store',
+            'Content-Type': 'text/plain; charset=utf-8',
+          })
+          .end(
+            request.method === 'HEAD'
+              ? undefined
+              : 'Shell build changed. Restart the preview server.',
+          );
+        return;
+      }
+
       if (!(await staticFile(path.join(root, 'host/dist'), request, response)))
         await handler(request, response);
     });

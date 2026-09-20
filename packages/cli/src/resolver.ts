@@ -1,6 +1,6 @@
 import { readFile, readdir, realpath, stat } from 'node:fs/promises';
 import { dirname, isAbsolute, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { configStrings } from './config-values.js';
 import { property } from './static-config.js';
 export { staticViteConfig, property } from './static-config.js';
 import { readConfigGraph } from './config-graph.js';
@@ -46,7 +46,7 @@ export interface ProjectResolver {
 /** Resolve source graphs and hook exports with the same paths, aliases and realpath rules. */
 export async function createProjectResolver(
   root: string,
-  options: { config?: string; inventory?: boolean; inspectConfig?: (source: string, file: string) => string } = {},
+  options: { config?: string; inventory?: boolean; inspectConfig?: (source: string, file: string) => string; sourceAliases?: Record<string, string> } = {},
 ): Promise<ProjectResolver> {
   const files = await readdir(root);
   const configs = files.filter(file => /^vite\.config\.[cm]?[jt]s$/.test(file));
@@ -80,47 +80,7 @@ export async function createProjectResolver(
     const alias = t.isObjectExpression(resolveValue)
       ? property(resolveValue, 'alias')?.value
       : undefined;
-    const shadowedURL = ast.program.body.some(
-      statement => 'URL' in t.getBindingIdentifiers(statement),
-    );
-    const readString = (node: t.Node | null | undefined): string => {
-      if (t.isStringLiteral(node)) return node.value;
-      if (
-        t.isCallExpression(node) &&
-        t.isIdentifier(node.callee) &&
-        node.arguments.length === 1
-      ) {
-        const imported = ast.program.body.some(
-          item =>
-            t.isImportDeclaration(item) &&
-            ['node:url', 'url'].includes(item.source.value) &&
-            item.specifiers.some(
-              specifier =>
-                t.isImportSpecifier(specifier) &&
-                t.isIdentifier(specifier.imported, { name: 'fileURLToPath' }) &&
-                specifier.local.name === (node.callee as t.Identifier).name,
-            ),
-        );
-        const value = node.arguments[0];
-        if (
-          imported &&
-          !shadowedURL &&
-          t.isNewExpression(value) &&
-          value.arguments.length === 2 &&
-          t.isIdentifier(value.callee, { name: 'URL' }) &&
-          t.isStringLiteral(value.arguments[0]) &&
-          t.isMemberExpression(value.arguments[1]) &&
-          t.isMetaProperty(value.arguments[1].object) &&
-          t.isIdentifier(value.arguments[1].property, { name: 'url' })
-        )
-          return fileURLToPath(
-            new URL(value.arguments[0].value, pathToFileURL(graph.file)),
-          );
-      }
-      throw new Error(
-        'PATH_ALIAS_DYNAMIC: aliases need string values or fileURLToPath(new URL("./src", import.meta.url)).',
-      );
-    };
+    const readString = configStrings(ast, graph.file);
     const add = (find: string, value: t.Node) => {
       const replacement = readString(value);
       if (!isAbsolute(replacement))
@@ -244,6 +204,11 @@ export async function createProjectResolver(
     paths: !!compilerOptions.paths,
     compilerOptions,
     async resolve(from, specifier) {
+      if (Object.hasOwn(options.sourceAliases ?? {}, specifier)) {
+        const mapped = await localFile(resolve(root, options.sourceAliases![specifier]));
+        if (!mapped) throw new Error(`UNRESOLVED_IMPORT: source mapping ${specifier} has no source target.`);
+        return mapped;
+      }
       if (specifier.startsWith('.'))
         return localFile(resolve(dirname(from), specifier));
       const alias = aliases.find(

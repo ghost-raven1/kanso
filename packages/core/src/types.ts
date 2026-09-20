@@ -6,10 +6,14 @@ export type Dispatch<A> = (value: A) => void;
 export type StateSetter<T> = Dispatch<StateAction<T>>;
 export type Effect = () => void | (() => void);
 export type DependencyList = readonly unknown[];
-export type RefObject<T> = Ref<T>;
+export interface RefObject<T> { current: T }
+export type MutableRefObject<T> = RefObject<T>;
+export type ForwardedRef<T> = RefTarget<T>;
+export type RefCallback<T> = (value: T | null) => void;
+export type RefTarget<T> = RefObject<T | null> | RefCallback<T> | null | undefined;
 export type CSSProperties = SolidJSX.CSSProperties | Record<string, string | number | undefined>;
 export type ComponentProps<T extends keyof JSX.IntrinsicElements | ((...args: never[]) => unknown)> = T extends keyof JSX.IntrinsicElements ? JSX.IntrinsicElements[T] : T extends (props: infer P) => unknown ? P : never;
-export interface Ref<T> { current: T }
+export type Ref<T> = RefTarget<T>;
 export type ReactNode = SolidJSX.Element;
 export type ComponentType<P = Record<string, never>> = (props: P) => SolidJSX.Element;
 export type FC<P = Record<string, never>> = ComponentType<P>;
@@ -27,7 +31,7 @@ export namespace JSX {
       className?: string;
       htmlFor?: string;
       dangerouslySetInnerHTML?: { __html: string | number | null | undefined } | null;
-      ref?: Ref<ElementFor<K> | null> | ((element: ElementFor<K>) => void);
+      ref?: RefTarget<ElementFor<K>>;
       style?: SolidJSX.CSSProperties | Record<string, string | number | undefined> | string;
     };
   export type IntrinsicElements = { [K in keyof SolidJSX.IntrinsicElements]: Props<K> };

@@ -228,3 +228,45 @@ describe('configuration and application graphs', () => {
     expect((await migrate({ root })).changes).toEqual([]);
   });
 });
+
+it('reads direct config callbacks and pure path helpers without executing them', async () => {
+  const {root} = await project({
+    'vite.config.ts': `import {defineConfig} from 'vite';import react from '@vitejs/plugin-react';import {fileURLToPath,URL} from 'node:url';
+      const source=(path:string)=>fileURLToPath(new URL(path,import.meta.url));
+      export default defineConfig(({command})=>({base:command==='build'?(process.env.LOCAL?process.env.ASSET_BASE:'/app/'):'/',plugins:[react()],resolve:{alias:{'@':source('./src')}}}));`,
+    'src/main.tsx': "export {Counter} from '@/Counter';",
+    'src/Counter.tsx': counter,
+  });
+  const report = await migrate({root,apply:true,local:process.cwd()});
+  expect(report.diagnostics).toEqual([]);
+  expect(report.applied).toBe(true);
+  expect(report.coverage?.complete).toBe(true);
+  expect((await migrate({root})).changes).toEqual([]);
+});
+
+it('uses explicit source mappings for hook and source audits, but blocks writes until federation is ported', async () => {
+  const {root,sources} = await project({
+    'src/main.tsx': "import {useCount} from 'account/hooks';export function App(){const[count,setCount]=useCount();return <button onClick={()=>setCount(v=>v+1)}>{count}</button>}",
+    'src/hooks.ts': "export {useCount} from './useCount';",
+    'src/useCount.ts': "import {useState} from 'react';export function useCount(){const[count,setCount]=useState(0);return [count,setCount]}",
+  });
+  const options={root,sourceAliases:{'account/hooks':'./src/hooks.ts'}};
+  const report=await migrate(options);
+  expect(report.coverage?.complete).toBe(true);
+  expect(report.coverage?.files).toContain('src/useCount.ts');
+  expect(report.diagnostics.map(item=>item.code)).toEqual(['SOURCE_ALIAS_PORT']);
+  expect(report.diagnostics[0].severity).toBe('warning');
+  expect((await migrate({...options,apply:true})).applied).toBe(false);
+  for(const [file,text] of Object.entries(sources)) expect(await readFile(join(root,file),'utf8')).toBe(text);
+});
+
+it.each([
+  `const source=(path)=>{ console.log(path); return path; };`,
+  `const source=(path)=>source(path);`,
+  `const source=(URL)=>fileURLToPath(new URL('./src',import.meta.url));`,
+])('rejects executable, cyclic or shadowed path helpers: %s', async helper => {
+  const {root}=await project({'vite.config.ts':`import {fileURLToPath} from 'node:url';${helper} export default {resolve:{alias:{'@':source('./src')}}};`});
+  const report=await migrate({root,apply:true});
+  expect(report.applied).toBe(false);
+  expect(report.diagnostics.map(item=>item.code)).toContain('PATH_ALIAS_DYNAMIC');
+});

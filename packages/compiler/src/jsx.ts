@@ -1,53 +1,11 @@
 import * as t from '@babel/types';
-import { helper, replaceReads, type TransformContext } from './context.js';
+import { helper, type TransformContext } from './context.js';
 
 const hasChildren = (element: t.Node | undefined) => t.isJSXElement(element) && (
   element.openingElement.attributes.some(attr => t.isJSXAttribute(attr) && t.isJSXIdentifier(attr.name, { name: 'children' })) ||
   element.children.some(child => t.isJSXText(child) ? child.value.trim().length > 0
     : !t.isJSXExpressionContainer(child) || !t.isJSXEmptyExpression(child.expression))
 );
-
-export function transformLists(context: TransformContext): void {
-  context.program.traverse({
-    CallExpression: { exit(path) {
-      const { callee, arguments: args } = path.node;
-      if (!t.isMemberExpression(callee) || !t.isIdentifier(callee.property, { name: 'map' }) || !t.isExpression(callee.object)) return;
-      const render = args[0];
-      if (!t.isArrowFunctionExpression(render)) return;
-      if (t.isBlockStatement(render.body)) {
-        const statement = render.body.body[0];
-        if (render.body.body.length === 1 && t.isReturnStatement(statement) && t.isJSXElement(statement.argument)) render.body = statement.argument;
-        else {
-          let jsx = false;
-          t.traverseFast(render.body, node => { if (t.isJSXElement(node) || t.isJSXFragment(node)) jsx = true; });
-          if (jsx) throw path.buildCodeFrameError('KANSO_LIST_BODY: move row setup into a keyed child component.');
-          return;
-        }
-      }
-      if (t.isJSXFragment(render.body)) throw path.buildCodeFrameError('KANSO_LIST_KEY: use a keyed Fragment or child component.');
-      if (!t.isJSXElement(render.body)) return;
-      const key = render.body.openingElement.attributes.find(attr => t.isJSXAttribute(attr) && t.isJSXIdentifier(attr.name, { name: 'key' }));
-      if (!t.isJSXAttribute(key) || !t.isJSXExpressionContainer(key.value) || !t.isExpression(key.value.expression)) throw path.buildCodeFrameError('KANSO_LIST_KEY: JSX lists require an explicit stable key.');
-      if (!render.params.every(t.isIdentifier)) throw path.buildCodeFrameError('KANSO_LIST_PARAMS: use named item and index parameters.');
-      const keyFunction = t.arrowFunctionExpression(render.params.map(param => t.cloneNode(param)), t.cloneNode(key.value.expression, true));
-      const callbackPath = path.get('arguments')[0];
-      render.params.forEach(param => {
-        const id = param as t.Identifier;
-        const newId = callbackPath.scope.generateUidIdentifier(id.name);
-        replaceReads(callbackPath.scope.getBinding(id.name), () => t.callExpression(t.cloneNode(newId), []));
-        id.name = newId.name;
-        context.reactive.add(id);
-      });
-      render.body.openingElement.attributes = render.body.openingElement.attributes.filter(attr => attr !== key);
-      const component = t.jsxIdentifier(helper(context, '__Keyed').name);
-      path.replaceWith(t.jsxElement(t.jsxOpeningElement(component, [
-        t.jsxAttribute(t.jsxIdentifier('each'), t.jsxExpressionContainer(callee.object)),
-        t.jsxAttribute(t.jsxIdentifier('by'), t.jsxExpressionContainer(keyFunction)),
-      ]), t.jsxClosingElement(t.cloneNode(component)), [t.jsxExpressionContainer(render)]));
-      path.skip();
-    } },
-  });
-}
 
 export function transformJsx(context: TransformContext): void {
   context.program.traverse({
@@ -84,7 +42,14 @@ export function transformJsx(context: TransformContext): void {
       const attr = path.node.name.name;
       const tag = path.parentPath.node;
       const intrinsic = t.isJSXOpeningElement(tag) && t.isJSXIdentifier(tag.name) && /^[a-z]/.test(tag.name.name);
-      if (!intrinsic) return;
+      if (!intrinsic) {
+        // Solid treats a component ref as a DOM assignment; Kanso passes it as a prop.
+        if (attr === 'ref' && t.isJSXExpressionContainer(path.node.value) && t.isExpression(path.node.value.expression)) {
+          path.replaceWith(t.jsxSpreadAttribute(t.objectExpression([t.objectProperty(t.identifier('ref'), path.node.value.expression)])));
+          path.skip();
+        }
+        return;
+      }
       if (attr === 'className') path.node.name.name = 'class';
       if (attr === 'htmlFor') path.node.name.name = 'for';
       if (attr === 'dangerouslySetInnerHTML') {

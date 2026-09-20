@@ -1,5 +1,5 @@
 import { batch, onCleanup } from 'solid-js';
-import type { Ref } from './types.js';
+import type { RefTarget } from './types.js';
 
 /** Explicit raw markup is not sanitized; applications must supply trusted HTML. */
 export function rawHtml(value: unknown): string {
@@ -37,11 +37,15 @@ export function styleObject(value: Record<string, unknown> | string | undefined)
   }));
 }
 
-export function assignRef<T>(ref: Ref<T | null> | ((element: T) => void)): (element: T) => void {
-  return element => {
-    if (typeof ref === 'function') ref(element);
-    else { ref.current = element; onCleanup(() => { if (ref.current === element) ref.current = null; }); }
-  };
+/** Return a cleanup so imperative handles can retain it across equal dependencies. */
+export function attachRef<T>(ref: RefTarget<T>, element: T): () => void {
+  if (!ref) return () => {};
+  if (typeof ref === 'function') { ref(element); return () => ref(null); }
+  ref.current = element;
+  return () => { if (ref.current === element) ref.current = null; };
+}
+export function assignRef<T>(ref: RefTarget<T>): (element: T) => void {
+  return element => { onCleanup(attachRef(ref, element)); };
 }
 
 /** Keep spread getters live while translating native DOM conventions. */

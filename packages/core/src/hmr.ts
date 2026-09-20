@@ -6,7 +6,7 @@ import {
   type JSX,
 } from 'solid-js';
 import { state, useId as freshId, useRef as freshRef } from './hooks.js';
-import type { StateSetter, Ref } from './types.js';
+import type { StateSetter, RefObject } from './types.js';
 
 // This entry is imported exclusively by the development compiler.
 const marker = Symbol.for('kanso.hmr.descriptor');
@@ -240,8 +240,11 @@ export function __reducer<S, A, I = S>(
   );
   return [read, action => write(previous => reduce(previous, action))];
 }
-export function useRef<T>(initial: T): Ref<T> {
-  return slot(() => freshRef(initial)).value as Ref<T>;
+export function useRef<T>(initial: T): RefObject<T>;
+export function useRef<T>(initial: T | null): RefObject<T | null>;
+export function useRef<T = undefined>(): RefObject<T | undefined>;
+export function useRef<T>(initial?: T): RefObject<T | undefined> {
+  return slot(() => freshRef(initial)).value as RefObject<T | undefined>;
 }
 export function useId(): string {
   return slot(freshId).value as string;

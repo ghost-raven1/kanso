@@ -21,6 +21,24 @@ const types = {
 };
 const server = createServer(async (request, response) => {
   try {
+    const current = JSON.parse(
+      await readFile('dist/kanso-manifest.json', 'utf8'),
+    );
+    if (current.buildId !== manifest.buildId) throw new Error('changed');
+  } catch {
+    response
+      .writeHead(503, {
+        'Cache-Control': 'no-store',
+        'Content-Type': 'text/plain; charset=utf-8',
+      })
+      .end(
+        request.method === 'HEAD'
+          ? undefined
+          : 'Build changed. Restart the preview server to load the new release.',
+      );
+    return;
+  }
+  try {
     const pathname = decodeURIComponent(
       new URL(request.url ?? '/', 'http://localhost').pathname,
     );

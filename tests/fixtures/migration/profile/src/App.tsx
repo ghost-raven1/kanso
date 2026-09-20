@@ -4,6 +4,9 @@ import React, {
   useId,
   useRef,
   useState,
+  forwardRef,
+  useLayoutEffect,
+  useImperativeHandle,
   type ComponentProps,
   type CSSProperties,
 } from 'react';
@@ -21,9 +24,14 @@ function Draft() {
     />
   );
 }
-function Field(props: ComponentProps<'input'>) {
-  return <input {...props} />;
-}
+const Field = forwardRef<HTMLInputElement, ComponentProps<'input'>>((props, ref) => {
+  const input = useRef<HTMLInputElement>(null);
+  useImperativeHandle(ref, () => input.current!, []);
+  useLayoutEffect(() => {
+    input.current?.setAttribute('data-attached', String(input.current.isConnected));
+  }, []);
+  return <input {...props} ref={input} />;
+});
 function Preview() {
   const theme = useContext(Theme);
   return <output data-theme>{theme}</output>;

@@ -1,4 +1,5 @@
 import { createComponent, createComputed, createSignal, createUniqueId, mergeProps, onCleanup, splitProps, useContext, type JSX } from 'solid-js';
+import { FORM_BUILD, responseError } from './recovery.js';
 import { Dynamic, isServer } from 'solid-js/web';
 import { DataContext, RouteIdContext } from './data.js';
 import type { ActionResult, FormValues } from './types.js';
@@ -73,6 +74,8 @@ export function useForm<T = unknown, V extends FormValues = FormValues>(options?
       const current = request = new AbortController();
       body.set(FORM_ROUTE, routeId);
       body.set(FORM_ID, id);
+      const buildId = context?.snapshot()?.buildId;
+      if (buildId) body.set(FORM_BUILD, buildId);
       if (session) body.set(REMOTE_VERSIONS, JSON.stringify(session.pins()));
       setPhase('submitting'); setErrors({}); setError(undefined); setFormError(undefined);
       try {
@@ -83,6 +86,7 @@ export function useForm<T = unknown, V extends FormValues = FormValues>(options?
         if (current !== request) return;
         const redirect = response.headers.get('X-Kanso-Redirect');
         if (redirect) { window.location.assign(redirect); return; }
+        if (!response.ok && response.status !== 422) throw responseError(response, 'Submit failed');
         const result = await response.json() as ActionResult<T, V>;
         if (current !== request) return;
         if (response.status === 422) {
@@ -91,7 +95,6 @@ export function useForm<T = unknown, V extends FormValues = FormValues>(options?
           setValues(() => result.values ?? {});
           return;
         }
-        if (!response.ok) throw new Error(`Submit failed: HTTP ${response.status}`);
         setValues(() => result.values ?? {});
         setData(() => result.data);
         setPhase('revalidating');
@@ -112,6 +115,7 @@ export type FormProps = Omit<JSX.FormHTMLAttributes<HTMLFormElement>, 'action' |
 
 /** A real POST form before hydration; JavaScript enhances the same action contract. */
 export function Form(props: FormProps): JSX.Element {
+  const data = useContext(DataContext);
   const session = useMicrofrontendSession();
   const [local, attributes] = splitProps(props, ['state', 'children', 'className', 'class', 'onSubmit']);
   return createComponent(Dynamic, mergeProps(attributes, {
@@ -128,6 +132,7 @@ export function Form(props: FormProps): JSX.Element {
       return [
         createComponent(Dynamic, { component: 'input', type: 'hidden', name: FORM_ROUTE, get value() { return local.state.routeId; } }),
         createComponent(Dynamic, { component: 'input', type: 'hidden', name: FORM_ID, get value() { return local.state.id; } }),
+        data ? createComponent(Dynamic, { component: 'input', type: 'hidden', name: FORM_BUILD, get value() { return data.snapshot()?.buildId ?? ''; } }) : null,
         session ? createComponent(Dynamic, { component: 'input', type: 'hidden', name: REMOTE_VERSIONS, get value() { return isServer ? SSR_REMOTE_PINS : JSON.stringify(session.pins()); } }) : null,
         local.children,
       ];

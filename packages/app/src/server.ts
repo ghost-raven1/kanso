@@ -1,3 +1,4 @@
+import { FORM_BUILD, requiresReload } from './recovery.js';
 import { matchRoute } from './routes.js';
 import { createRenderCache } from './cache.js';
 import { createHeadRegistry } from './seo/registry.js';
@@ -64,6 +65,14 @@ export function createRequestHandler<C = unknown, const R extends Route[] = Rout
     });
     try {
       const run = async (): Promise<Response> => {
+        let clientBuild = request.headers.get('X-Kanso-Build');
+        if (post && !clientBuild) {
+          try { const value = (await request.clone().formData()).get(FORM_BUILD); if (typeof value === 'string') clientBuild = value; } catch { /* Existing form validation supplies the response. */ }
+        }
+        if ((enhanced || post) && clientBuild && clientBuild !== options.buildId)
+          return new Response(request.method === 'HEAD' ? null : 'This page uses an unavailable release. Reload the page before submitting again.', {
+            status: 409, headers: { 'Cache-Control': 'no-store', 'X-Kanso-Error': 'APP_BUILD_MISMATCH', 'X-Kanso-Recovery': 'reload' },
+          });
         const url = dataRequest ? pageUrl(incoming.searchParams.get('url') ?? '/', incoming.origin)
           : actionId !== undefined ? pageUrl(request.headers.get('X-Kanso-Location') ?? '/', incoming.origin) : incoming;
         let requestOptions = options as RequestHandlerOptions<C>;
@@ -185,7 +194,7 @@ export function createRequestHandler<C = unknown, const R extends Route[] = Rout
       return transportResponse(await Promise.race([run(), aborted]), enhanced, request.method === 'HEAD');
     } catch (error) {
       if (error instanceof Response) return transportResponse(error, enhanced, request.method === 'HEAD');
-      if (error instanceof Error && error.name === 'RemoteError') return new Response(request.method === 'HEAD' ? null : error.message, { status: (error as Error & { status: number }).status, headers: { 'Cache-Control': 'no-store' } });
+      if (error instanceof Error && error.name === 'RemoteError') return new Response(request.method === 'HEAD' ? null : error.message, { status: (error as Error & { status: number }).status, headers: { 'Cache-Control': 'no-store', 'X-Kanso-Error': (error as Error & { code: string }).code, ...(requiresReload(error) ? { 'X-Kanso-Recovery': 'reload' } : {}) } });
       return new Response(request.method === 'HEAD' ? null : signal.aborted ? 'Request timed out or cancelled' : error instanceof URIError ? 'Invalid URL' : 'Server rendering failed', {
         status: signal.aborted ? 504 : error instanceof URIError ? 400 : 500, headers: { 'Cache-Control': 'no-store' },
       });

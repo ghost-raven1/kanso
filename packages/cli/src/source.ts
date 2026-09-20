@@ -7,11 +7,12 @@ import { TraceMap, originalPositionFor } from '@jridgewell/trace-mapping';
 import { compile } from '@kanso/compiler';
 import type { Scope } from '@babel/traverse';
 import type { Diagnostic } from './types.js';
+import { auditNativeEvents } from './native-events.js';
 import { extendsReactComponent } from './react-classes.js';
 
 const traverse = (traverseModule as unknown as { default: typeof traverseModule }).default ?? traverseModule;
 const generate = (generatorModule as unknown as { default: typeof generatorModule }).default ?? generatorModule;
-const supported = new Set(['useState', 'useReducer', 'useEffect', 'useMemo', 'useCallback', 'useRef', 'useId', 'createContext', 'useContext', 'lazy', 'Suspense', 'Fragment', 'ReactNode', 'FC', 'ComponentType', 'PropsWithChildren', 'Dispatch', 'SetStateAction', 'ComponentProps', 'CSSProperties', 'RefObject']);
+const supported = new Set(['useState', 'useReducer', 'useEffect', 'useLayoutEffect', 'useImperativeHandle', 'forwardRef', 'useMemo', 'useCallback', 'useRef', 'useId', 'createContext', 'useContext', 'lazy', 'Suspense', 'Fragment', 'ReactNode', 'FC', 'ComponentType', 'PropsWithChildren', 'Dispatch', 'SetStateAction', 'ComponentProps', 'CSSProperties', 'RefObject', 'Ref', 'MutableRefObject', 'ForwardedRef', 'RefCallback', 'ChangeEvent', 'FormEvent', 'MouseEvent', 'KeyboardEvent', 'FocusEvent', 'PointerEvent', 'TouchEvent', 'ClipboardEvent']);
 
 export function migrateSource(source: string, file: string, approvedHooks: ReadonlySet<string> = new Set(), options: { configuration?: boolean } = {}): { code: string; diagnostics: Diagnostic[]; imports: string[] } {
   const ast = parse(source, { sourceType: 'module', plugins: ['typescript', 'jsx'] });
@@ -36,6 +37,7 @@ export function migrateSource(source: string, file: string, approvedHooks: Reado
   const report = (node: t.Node, code: string, message: string, severity: 'error' | 'warning' = 'error') => {
     diagnostics.push({ file, line: node.loc?.start.line, column: node.loc ? node.loc.start.column + 1 : undefined, endLine: node.loc?.end.line, endColumn: node.loc ? node.loc.end.column + 1 : undefined, code, message, severity, hint: diagnosticHint(code), docsUrl: 'https://github.com/ghost-raven1/kanso/blob/main/docs/migration.md' });
   };
+  auditNativeEvents(ast, report);
   traverse(ast, { Class(path) {
     if (extendsReactComponent(path)) report(path.node, 'CLASS_COMPONENT', 'React component classes must become function components.');
   } });
@@ -155,7 +157,7 @@ export function migrateSource(source: string, file: string, approvedHooks: Reado
       const callee = path.node.callee;
       if (t.isIdentifier(callee)) {
         const name = hooks.get(binding(path.scope, callee.name)!);
-        if (reactHooks.has(binding(path.scope, callee.name)!) && name === 'useEffect' && !path.node.arguments[1]) report(path.node, 'EFFECT_TRACKING', 'An effect without dependencies becomes auto-tracked. Add an explicit dependency array after review.');
+        if (reactHooks.has(binding(path.scope, callee.name)!) && ['useEffect', 'useLayoutEffect'].includes(name ?? '') && !path.node.arguments[1]) report(path.node, 'EFFECT_TRACKING', 'An effect without dependencies becomes auto-tracked. Add an explicit dependency array after review.');
         if (reactHooks.has(binding(path.scope, callee.name)!) && name === 'useCallback' && t.isArrayExpression(path.node.arguments[1]) && path.node.arguments[1].elements.length === 0) {
           const callback = path.get('arguments')[0];
           callback?.traverse({ ReferencedIdentifier(ref) {

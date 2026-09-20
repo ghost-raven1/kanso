@@ -7,3 +7,6 @@ export { liveArgument as __liveArgument, hookArgument as __hookArgument, hookRes
 export { contextValue as __context } from './context.js';
 export { defaultValue as __default, objectRest as __objectRest } from './patterns.js';
 export { storeValue as __store } from './external-store.js';
+
+export { layoutEffect as __layoutEffect } from './hooks.js';
+export { imperativeHandle as __imperativeHandle } from './refs.js';

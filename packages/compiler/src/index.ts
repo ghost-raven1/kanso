@@ -1,9 +1,11 @@
 import { transformSync, type PluginObj } from '@babel/core';
 import * as t from '@babel/types';
 import solid from 'babel-preset-solid';
+import { transformForwardRefs } from './forward-ref.js';
 import { transformProps, transformLocalProps } from './props.js';
 import { transformHooks, transformDerived } from './state.js';
-import { transformLists, transformJsx } from './jsx.js';
+import { transformJsx } from './jsx.js';
+import { transformLists } from './lists.js';
 import { importedName, type TransformContext } from './context.js';
 import { prepareRefresh, finishRefresh } from './hmr.js';
 import { transformControlFlow } from './control-flow.js';
@@ -12,8 +14,9 @@ import { transformHookParameters, transformCustomCalls, transformHookArguments, 
 /** Runs before Solid JSX lowering; no React runtime or compiler is involved. */
 export function kansoBabelPlugin(_api?: unknown, options: { hmr?: 'preserve' | 'remount' } = {}): PluginObj {
   return { name: 'kanso', visitor: { Program(program) {
+    transformForwardRefs(program);
     const refresh = options.hmr ? prepareRefresh(program, options.hmr) : undefined;
-    const context: TransformContext = { program, imports: new Map(), helpers: new Map(), reactive: new Set(), props: new Set() };
+    const context: TransformContext = { program, imports: new Map(), helpers: new Map(), reactive: new Set(), props: new Set(), rows: new Set() };
     for (const statement of program.node.body) {
       if (!t.isImportDeclaration(statement) || !['@kanso/core', '@kanso/app'].includes(statement.source.value)) continue;
       for (const specifier of statement.specifiers) if (t.isImportSpecifier(specifier) && t.isIdentifier(specifier.imported)) context.imports.set(specifier.local, specifier.imported.name);

@@ -2,7 +2,7 @@ import {
   createEffect, createMemo, createSignal, createUniqueId, getOwner, onCleanup, untrack,
   type Accessor,
 } from 'solid-js';
-import type { DependencyList, StateSetter, Effect, Ref } from './types.js';
+import type { DependencyList, StateSetter, Effect, RefObject } from './types.js';
 
 function ownerRequired(): void {
   if (!getOwner()) throw new Error('Kanso hooks require a component or createRoot owner.');
@@ -28,7 +28,7 @@ const sameDependencies = (left: DependencyList, right: DependencyList) =>
   left.length === right.length && left.every((value, index) => Object.is(value, right[index]));
 
 /** Explicit dependencies track only the list; absent dependencies track the callback. */
-export function effect(callback: Effect, dependencies?: Accessor<DependencyList>): void {
+export function effect(callback: Effect, dependencies?: Accessor<DependencyList>, layout = false): void {
   ownerRequired();
   let first = true;
   let previous: DependencyList = [];
@@ -41,7 +41,7 @@ export function effect(callback: Effect, dependencies?: Accessor<DependencyList>
     if (next) previous = [...next];
     untrack(() => { cleanup?.(); cleanup = undefined; });
     cleanup = dependencies ? untrack(callback) : callback();
-  });
+  }, undefined, { render: layout });
 }
 
 export function memoValue<T>(factory: () => T, dependencies?: Accessor<DependencyList>): Accessor<T> {
@@ -56,7 +56,10 @@ export function callbackValue<T extends (...args: never[]) => unknown>(factory: 
 }
 
 /** A ref is intentionally not reactive. */
-export function useRef<T>(initial: T): Ref<T> { return { current: initial }; }
+export function useRef<T>(initial: T): RefObject<T>;
+export function useRef<T>(initial: T | null): RefObject<T | null>;
+export function useRef<T = undefined>(): RefObject<T | undefined>;
+export function useRef<T>(initial?: T): RefObject<T | undefined> { return { current: initial }; }
 
 const compileRequired = (): never => {
   throw new Error('Kanso compiler is required. Add kanso() from @kanso/vite to Vite plugins.');
@@ -78,3 +81,8 @@ export function useCallback(): never { return compileRequired(); }
 
 /** Stable DOM identifier shared by SSR and hydration. */
 export function useId(): string { ownerRequired(); return createUniqueId(); }
+
+/** Layout effects run after DOM attachment, before ordinary user effects; SSR skips both. */
+export function layoutEffect(callback: Effect, dependencies?: Accessor<DependencyList>): void { effect(callback, dependencies, true); }
+export function useLayoutEffect(callback: Effect, dependencies?: DependencyList): void;
+export function useLayoutEffect(): never { return compileRequired(); }

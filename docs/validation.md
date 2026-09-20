@@ -1,6 +1,14 @@
 # Проверка реализации — 20 сентября 2026
 
-Версия Kanso 0.7.2. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
+Версия Kanso 0.8.0. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
+
+## Lifecycle, миграция и восстановление 0.8.0
+
+`npm run check`: 298/298 Vitest, TypeScript, production-сборки и проверка отсутствия React и лишнего runtime. Новые проверки покрывают layout timing, очистку object/callback refs, imperative handles с одинаковыми зависимостями, именованные forwardRef-компоненты, вложенный setup строк, затенённые функции, безопасные config helpers и отказ от записи при source mappings.
+
+Локально Chromium/WebKit проходят лабораторию (включая ввод до гидратации и восстановление маршрута), формы с включённым/выключенным/отложенным JavaScript, SSR stores/services, HMR refs/эффектов/нескольких экземпляров, JSX compatibility, миграцию React fixtures, packed CSR/SSR templates и независимые выпуски/откат микрофронтов. В React profile fixture теперь используются настоящие forwardRef/useImperativeHandle/useLayoutEffect до и после миграции. Ошибка смены выпуска проверяется без повторного POST и без удаления ввода; шаблон SSR отклоняет старую сборку preview и возобновляет ответы после восстановления manifest.
+
+Firefox локально не запускается из-за ошибки установленного браузера `Could not find profile folder`; это не успешный результат браузерных сценариев. Все три движка остаются обязательными в Linux CI, включая новые проверки в существующих командах `test:browser`, `test:hmr` и `test:dx`.
 
 ## Аудит vanilla entries 0.7.2
 

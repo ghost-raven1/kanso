@@ -2,7 +2,7 @@
 
 React-shaped TSX. Solid reactivity. No React runtime.
 
-Рабочая реализация **0.7.2**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO, микрофронты, внешние stores и сервисы на приложение/SSR-запрос, необязательные инструменты Web/Service Workers. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Совместимость с React-зависимыми библиотеками не предоставляется.
+Рабочая реализация **0.8.0**: компилятор, ядро, Vite, мигратор, веб-слой с SSR и SEO, микрофронты, внешние stores и сервисы на приложение/SSR-запрос, необязательные инструменты Web/Service Workers. Пакеты пока не опубликованы. Поддерживаемый синтаксис и отличия исполнения зафиксированы в [спецификации](docs/semantics.md). Совместимость с React-зависимыми библиотеками не предоставляется.
 
 ```tsx
 import { useState, useEffect } from '@kanso/core';
@@ -271,9 +271,9 @@ npm run bench            # production Kanso/Solid/React/memo/React Compiler
 Linux-проверка всех браузеров, в том числе при проблеме запуска Firefox на macOS 27:
 
 ```bash
-docker build -f Dockerfile.test -t kanso-test:0.7.2 .
+docker build -f Dockerfile.test -t kanso-test:0.8.0 .
 mkdir -p output/linux
-docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.7.2
+docker run --rm --mount "type=bind,source=$PWD/output/linux,target=/results" kanso-test:0.8.0
 ```
 
 Результаты и скриншоты сохраняются в `output/`. Исходные условия и результаты замеров — в [отчёте](docs/validation.md). CI описан в `.github/workflows/ci.yml`.
@@ -296,3 +296,5 @@ PORT=4180 npm run preview
 ```
 
 Откройте `http://127.0.0.1:4180/`. Предварительно проверьте, что порт свободен. Данные и регистрации других приложений автоматически не удаляются.
+
+В 0.8.0: [layout-эффекты, refs и читаемые map callbacks](docs/lifecycle.md), [расширенный аудит конфигурации и federation sources](docs/migration.md#сложные-конфиги-и-source-mappings-080). В лаборатории — раздел **Refs & lists**.

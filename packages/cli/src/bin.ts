@@ -52,7 +52,13 @@ try {
     }
     if (report.diagnostics.some(item => item.severity === 'error')) process.exitCode = 2;
   } else if (command === 'migrate') {
-    const report = await migrate({ root: option('--root') ?? process.cwd(), apply: args.includes('--apply'), local: option('--local'), entries: options('--entry'), configs: options('--config') });
+    const sourceAliases: Record<string, string> = {};
+    for (const value of options('--source-alias')) {
+      const separator = value.indexOf('=');
+      if (separator < 1 || separator === value.length - 1 || Object.hasOwn(sourceAliases, value.slice(0, separator))) throw new Error('Use unique --source-alias remote/Export=./source.tsx mappings.');
+      sourceAliases[value.slice(0, separator)] = value.slice(separator + 1);
+    }
+    const report = await migrate({ sourceAliases, root: option('--root') ?? process.cwd(), apply: args.includes('--apply'), local: option('--local'), entries: options('--entry'), configs: options('--config') });
     if (args.includes('--json')) console.log(JSON.stringify(report, null, 2));
     else {
       console.log(`Kanso: ${report.modules} modules checked, ${report.changes.length} proposed file changes.`);
@@ -62,7 +68,7 @@ try {
     }
     if (report.diagnostics.some(item => item.severity === 'error')) process.exitCode = 2;
   } else {
-    console.log('kanso create <directory> [--local <workspace>]\nkanso migrate --check|--apply [--root <project>] [--entry <file>] [--config <file>] [--local <workspace>] [--json]');
+    console.log('kanso create <directory> [--local <workspace>]\nkanso migrate --check|--apply [--root <project>] [--entry <file>] [--config <file>] [--source-alias remote/Export=./source.tsx] [--local <workspace>] [--json]');
     console.log('kanso doctor [--root <project>] [--json]\nkanso create <directory> --template csr|ssr|microfrontends|remote [--local <workspace>]');
     console.log('kanso seo check --url <origin/page> [--max-pages 200] [--json]');
     console.log('kanso microfrontends sync|check [--root <project>] [--json]');

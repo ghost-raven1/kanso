@@ -15,7 +15,7 @@ function Home() {
     <Settings.Provider value={{ step }}>
       <Seo title="Independent pieces. One application." />
       <header>
-        <span className="eyebrow">KANSO 0.6 · MICROFRONTENDS</span>
+        <span className="eyebrow">KANSO · MICROFRONTENDS</span>
         <h1>
           Independent pieces.
           <br />
