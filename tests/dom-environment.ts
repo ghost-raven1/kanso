@@ -7,7 +7,7 @@ export function installDOM(): void {
   let dom: JSDOM;
   beforeAll(() => {
     dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', { url: 'http://localhost' });
-    for (const key of ['window', 'document', 'Node', 'Element', 'HTMLElement', 'HTMLInputElement', 'Event', 'MouseEvent', 'MutationObserver']) {
+    for (const key of ['window', 'document', 'Node', 'Element', 'HTMLElement', 'HTMLHeadElement', 'HTMLInputElement', 'Event', 'MouseEvent', 'MutationObserver']) {
       original.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
       Object.defineProperty(globalThis, key, { value: Reflect.get(dom.window, key), configurable: true, writable: true });
     }

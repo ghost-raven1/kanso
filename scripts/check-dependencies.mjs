@@ -10,6 +10,7 @@ for (const file of await readdir(`examples/${example}/dist/assets`)) {
   if (!file.endsWith('.js')) continue;
   const source = await readFile(`examples/${example}/dist/assets/${file}`, 'utf8');
   assert.equal(/kanso\.hmr|Kanso HMR|hotRegistry/.test(source), false, `HMR runtime leaked into ${file}`);
+  assert.equal(/KANSO_TEST_(?:ENVIRONMENT|CONTAINER|UNMOUNTED)/.test(source), false, `Testing runtime leaked into ${file}`);
   assert.equal(federationRuntime.test(source), false, `Federation runtime leaked into ordinary ${example} client ${file}`);
   assert.equal(/KANSO_SERVER_IMPLEMENTATION_ONLY|createDemoRequestStore|never-reflect/.test(source), false, `Server code leaked into ${file}`);
 }

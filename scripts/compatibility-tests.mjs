@@ -46,6 +46,7 @@ try {
   assert.match(documents[0], /<output[^>]*data-summary[^>]*>/);
   assert.match(documents[0], /FIRST/);
   assert.match(documents[0], /<span[^>]*data-title[^>]*>first<\/span>/);
+  assert.doesNotMatch(documents[0], /data-portal(?:\s|>)/, 'portals never evaluate or render children during SSR');
   for (const [name, engine] of Object.entries({ chromium, firefox, webkit })) {
     if (process.env.KANSO_BROWSERS && !process.env.KANSO_BROWSERS.split(',').includes(name)) continue;
     const browser = await engine.launch();
@@ -68,19 +69,34 @@ try {
       assert.equal(await page.evaluate(() => window.before.every(node => node.isConnected)), true, `${name}: hydration adopts keyed and raw HTML nodes`);
       assert.equal(await page.getByLabel('Draft', { exact: true }).first().inputValue(), 'Draft before hydration');
       assert.equal(await page.locator('[data-summary]').textContent(), 'FIRSTfirst');
-      assert.equal(await page.locator('input').evaluateAll(nodes => new Set(nodes.map(node => node.id)).size), 2);
+      assert.equal(await page.locator('input').evaluateAll(nodes => new Set(nodes.map(node => node.id)).size), 3);
+      assert.equal(await page.locator('#root [data-portal]').count(), 0);
+      assert.equal(await page.locator('[data-portal]').count(), 1);
+      await page.getByLabel('Portal draft').fill('Portal input');
+      await page.locator('[data-portal-count]').click();
+      assert.equal(await page.locator('[data-portal-count]').textContent(), 'first: 1');
+      assert.equal(await page.evaluate(() => trace.portalEvents), 0, 'native events follow DOM ancestors, not the JSX owner');
       await page.locator('[data-count]').first().click();
       await page.locator('[data-count]').last().click();
       await page.locator('[data-count]').last().click();
       await page.locator('#reset').click();
       assert.deepEqual(await page.locator('[data-count]').allTextContents(), ['0', '2']);
       assert.equal(await page.locator('[data-summary]').textContent(), 'NEXTnext');
+      assert.equal(await page.locator('[data-portal-count]').textContent(), 'next: 1');
+      assert.equal(await page.getByLabel('Portal draft').inputValue(), 'Portal input');
+      assert.equal(await page.evaluate(() => trace.portals), 1);
       assert.equal(await page.evaluate(() => trace.summaries), 1, 'context selectors and memo patterns retain one component setup');
       assert.equal(await page.evaluate(() => window.before[0].isConnected), false);
       assert.equal(await page.evaluate(() => window.before[1].isConnected), true);
       assert.deepEqual(await page.evaluate(() => ({ parents: trace.parents, mounts: trace.mounts, cleanups: trace.cleanups, released: trace.refs[0].current === null })),
         { parents: 1, mounts: 3, cleanups: 1, released: true });
-      assert.equal(await page.locator('input').evaluateAll(nodes => new Set(nodes.map(node => node.id)).size), 2);
+      assert.equal(await page.locator('input').evaluateAll(nodes => new Set(nodes.map(node => node.id)).size), 3);
+      await page.locator('#toggle-portal').click();
+      assert.equal(await page.locator('[data-portal]').count(), 0);
+      assert.equal(await page.evaluate(() => trace.portalCleanups), 1);
+      await page.locator('#toggle-portal').click();
+      assert.equal(await page.locator('[data-portal]').count(), 1);
+      assert.equal(await page.locator('[data-portal-count]').textContent(), 'next: 0');
       await page.locator('#update').click();
       for (const selector of ['article', 'aside']) assert.equal(await page.locator(selector).innerHTML(), '<em>Updated markup</em>');
       await page.locator('#clear').click();
@@ -88,6 +104,8 @@ try {
       await page.evaluate(() => window.dispose());
       assert.equal(await page.evaluate(() => trace.cleanups), 3);
       assert.equal(await page.evaluate(() => trace.refs.every(ref => ref.current === null)), true);
+      assert.equal(await page.locator('[data-portal]').count(), 0);
+      assert.equal(await page.evaluate(() => trace.portalCleanups), 2);
       assert.deepEqual(errors, []);
       results.push({ browser: name, passed: true });
       console.log(`${name}: key reset, independent state, raw HTML, SSR hydration and cleanup passed`);

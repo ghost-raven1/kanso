@@ -6,8 +6,8 @@ import { transformSync } from '@babel/core';
 import solid from 'babel-preset-solid';
 
 const entries = {
-  core: ['index', 'internal', 'client', 'jsx-runtime', 'hmr'],
-  compiler: ['index'], vite: ['index'], app: ['index', 'server', 'node', 'seo', 'microfrontends', 'router-runtime'], cli: ['index', 'bin'], microfrontends: ['index', 'server', 'browser', 'manifest'], workers: ['index', 'worker', 'service', 'service-runtime'],
+  core: ['index', 'internal', 'client', 'jsx-runtime', 'hmr', 'testing'],
+  compiler: ['index'], vite: ['index', 'testing'], app: ['index', 'server', 'node', 'seo', 'microfrontends', 'router-runtime'], cli: ['index', 'bin'], microfrontends: ['index', 'server', 'browser', 'manifest'], workers: ['index', 'worker', 'service', 'service-runtime'],
 };
 for (const [name, files] of Object.entries(entries)) {
   await rm(`packages/${name}/dist`, { recursive: true, force: true });

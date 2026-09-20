@@ -85,7 +85,19 @@ try {
   }
   for (const template of ['csr', 'ssr']) {
     const root = await mkdtemp(resolve(`output/dx/starter-${template}-`));
-    await createProject(root, undefined, { template }); await usePacked(root); install(root);
+    await createProject(root, undefined, { template }); await usePacked(root);
+    if (template === 'csr') {
+      const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+      Object.assign(pkg.devDependencies, { vitest: '4.1.11', jsdom: '26.1.0', '@testing-library/dom': '10.4.1' });
+      await writeFile(join(root, 'package.json'), JSON.stringify(pkg, null, 2));
+      await cp('tests/fixtures/testing/Counter.test.tsx', join(root, 'src/Counter.test.tsx'));
+      await cp('tests/fixtures/testing/vitest.config.ts', join(root, 'vitest.config.ts'));
+    }
+    install(root);
+    if (template === 'csr') {
+      run(root, process.execPath, ['node_modules/vitest/vitest.mjs', 'run']);
+      results.push({ template, packedTesting: true, portal: true, reactiveProps: true, routerServices: true });
+    }
     assert.deepEqual((await doctor({ root })).diagnostics, []);
     const cli = join(root, 'node_modules/@kanso/cli/dist/bin.js');
     const valid = JSON.parse(execFileSync(process.execPath, [cli, 'doctor', '--root', root, '--json'], { encoding: 'utf8' })); assert.deepEqual(valid.diagnostics, []);

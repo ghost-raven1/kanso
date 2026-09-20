@@ -45,7 +45,7 @@ function Layout({ children }: PropsWithChildren) {
           <Link href="/lazy">03 · Lazy route</Link>
           <Link href="/seo">04 · SEO</Link>
           <Link href="/services/alpha">05 · Stores & services</Link>
-          <Link href="/lifecycle">06 · Refs & lists</Link>
+          <Link href="/lifecycle">06 · Lifecycle & portals</Link>
         </nav>
         <section className="workspace">{children}</section>
         <footer>
@@ -67,7 +67,7 @@ export const routes = defineRoutes([
         id: 'lifecycle',
         path: '/lifecycle',
         component: Lifecycle,
-        seo: { title: 'Refs & lists' },
+        seo: { title: 'Lifecycle & portals' },
       },
       {
         id: 'services',

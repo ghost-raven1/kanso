@@ -1,6 +1,32 @@
 # Проверка реализации — 20 сентября 2026
 
-Версия Kanso 0.8.1. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
+Версия Kanso 0.9.0. Исходники опубликованы в [публичном репозитории](https://github.com/ghost-raven1/kanso), основная ветка — main. Пакеты в npm не опубликованы, production-сервер не развёртывался. [GitHub Actions](https://github.com/ghost-raven1/kanso/actions/workflows/ci.yml) запускает контракты, production SSR, Chromium/Firefox/WebKit и проверку миграции/HMR на Ubuntu; результат каждого запуска привязан к SHA коммита.
+
+## Portal, тестовое окружение и CLI 0.9.0
+
+`npm run check`: 342/342 Vitest, TypeScript, форматирование, production-сборки
+и dependency audit. Проверены смена цели Portal без сброса состояния/DOM,
+Context, cleanup/ref, отсутствие вычислений на сервере, live props тестового
+компонента, независимые scopes и очистка после ошибок. Положительные и
+отрицательные TypeScript-примеры проверяют optional props и типы контейнера.
+
+Локально Chromium/WebKit проходят SSR → гидратация → изменение Context и
+состояния → удаление/повторное монтирование портала. Лаборатория проверяет
+черновик, возврат фокуса и cleanup при уходе с маршрута. HMR прогоняет несколько
+порталов со state/reducer/refs/useId, несовместимые hooks и восстановление после
+ошибки. Эти же команды включены в CI для всех трёх браузеров.
+
+`test:dx` устанавливает tarballs и запускает три настоящих Vitest DOM-теста с
+`@kanso/vite/testing`: живые props/Context, cleanup между тестами и MemoryRouter
+с сервисом. Затем проходят TypeScript и build. Сохраняются сценарии трёх React
+fixtures до/после миграции и CSR/SSR starters. Отдельная холодная `npm ci` из
+копии package manifests/lockfile проходит без workspace symlinks; версии
+сторонних вложенных зависимостей сохранены.
+
+14 unit-тестов формата CLI проверяют уровни/диапазоны/hints, TTY/NO_COLOR,
+неизменность JSON пяти команд и коды выхода. Формат не добавляет runtime-логов
+в приложение. Production-аудит дополнительно отклоняет тестовый runtime
+в клиентских chunks обычных примеров.
 
 ## Результаты hooks и точность миграции 0.8.1
 

@@ -22,10 +22,10 @@ await mkdir('output/hmr', { recursive: true });
 const root = await mkdtemp(resolve('output/hmr/project-'));
 await createProject(root, process.cwd());
 run(root, 'npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', '--workspaces=false']);
-const appSource = `import{useEffect,useReducer,useRef,useId}from'@kanso/core';import{useCounter}from'./useCounter';
+const appSource = `import{Portal,useEffect,useReducer,useRef,useId}from'@kanso/core';import{useCounter}from'./useCounter';
 function Counter(){const{count,increment}=useCounter();const[total,dispatch]=useReducer((n:number)=>n+1,0);const cache=useRef('seed');const field=useRef<HTMLInputElement|null>(null);const id=useId();
 useEffect(()=>{window.trace.active++;return()=>{window.trace.active--;window.trace.cleanup++}},[]);
-return <section><button data-count onClick={()=>{cache.current='kept';increment()}}>Count: {count}</button><button data-reducer onClick={()=>dispatch(undefined)}>Total: {total}</button><label htmlFor={id}>Input</label><input id={id} ref={field}/><button data-focus onClick={()=>field.current?.focus()}>Focus</button><span data-ref>{cache.current}</span></section>}
+return <Portal><section><button data-count onClick={()=>{cache.current='kept';increment()}}>Count: {count}</button><button data-reducer onClick={()=>dispatch(undefined)}>Total: {total}</button><label htmlFor={id}>Input</label><input id={id} ref={field}/><button data-focus onClick={()=>field.current?.focus()}>Focus</button><span data-ref>{cache.current}</span></section></Portal>}
 export function App(){return <main><Counter/><Counter/></main>}`;
 const hookSource = `import{useState,useMemo}from'@kanso/core';export function useCounter(){const[count,setCount]=useState(()=>{window.trace.initial++;return 0});const increment=()=>setCount(value=>value+1);return useMemo(()=>({count,increment}),[count,increment])}`;
 await writeFile(join(root, 'src/env.d.ts'), 'interface Window { trace: {initial:number;active:number;cleanup:number} }');

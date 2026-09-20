@@ -1,6 +1,6 @@
 {
   "name": "@kanso/cli",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "type": "module",
   "files": [
     "dist"
@@ -19,8 +19,8 @@
     "@babel/parser": "^7.28.0",
     "@babel/traverse": "^7.28.0",
     "@babel/types": "^7.28.0",
-    "@kanso/compiler": "0.8.1",
-    "@kanso/microfrontends": "0.8.1",
+    "@kanso/compiler": "0.9.0",
+    "@kanso/microfrontends": "0.9.0",
     "fast-xml-parser": "^5.11.1",
     "parse5": "^8.0.1",
     "typescript": "^5.9.0",

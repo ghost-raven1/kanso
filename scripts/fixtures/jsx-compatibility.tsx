@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from '@kanso/core';
+import { Portal, createContext, useContext, useEffect, useId, useMemo, useRef, useState } from '@kanso/core';
 
 export const trace = {
   parents: 0,
@@ -6,6 +6,9 @@ export const trace = {
   cleanups: 0,
   refs: [] as { current: HTMLInputElement | null }[],
   summaries: 0,
+  portals: 0,
+  portalCleanups: 0,
+  portalEvents: 0,
 };
 
 const Metadata = createContext({ title: 'default' });
@@ -16,6 +19,23 @@ function Summary() {
   const title = useTitle();
   const { heading } = useMemo(() => ({ heading: title.toUpperCase() }), [title]);
   return <output data-summary>{heading}<span data-title><TitleText /></span></output>;
+}
+
+function PortalEditor() {
+  trace.portals++;
+  const title = useContext(Metadata).title;
+  const [count, setCount] = useState(0);
+  const id = useId();
+  useEffect(() => () => { trace.portalCleanups++; }, []);
+  return (
+    <section data-portal>
+      <label htmlFor={id}>Portal draft</label>
+      <input id={id} />
+      <button data-portal-count onClick={() => setCount(value => value + 1)}>
+        {title}: {count}
+      </button>
+    </section>
+  );
 }
 
 function Editor() {
@@ -47,14 +67,17 @@ export function App() {
   trace.parents++;
   const [revision, setRevision] = useState(0);
   const [markup, setMarkup] = useState('<strong>Server markup</strong>');
+  const [portalVisible, setPortalVisible] = useState(true);
 
   return (
-    <main>
+    <main onClick={event => { if ((event.target as HTMLElement).matches('[data-portal-count]')) trace.portalEvents++; }}>
       <Editor key={revision} />
       <Editor />
       <Metadata.Provider value={{ title: revision === 0 ? 'first' : 'next' }}>
         <Summary />
+        {portalVisible && <Portal><PortalEditor /></Portal>}
       </Metadata.Provider>
+      <button id="toggle-portal" onClick={() => setPortalVisible(value => !value)}>Toggle portal</button>
       <button id="reset" onClick={() => setRevision(value => value + 1)}>
         Reset first
       </button>

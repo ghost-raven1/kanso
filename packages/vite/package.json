@@ -1,6 +1,6 @@
 {
   "name": "@kanso/vite",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "type": "module",
   "files": [
     "dist",
@@ -13,10 +13,14 @@
     },
     "./client": {
       "types": "./client.d.ts"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
     }
   },
   "dependencies": {
-    "@kanso/compiler": "0.8.1",
+    "@kanso/compiler": "0.9.0",
     "@module-federation/vite": "1.22.1",
     "semver": "7.7.4",
     "vite-plugin-solid": "2.11.14",
